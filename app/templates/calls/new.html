@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Log New Call{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Log New Call</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ form.caller_name.label(class="form-label") }} *
+                            {{ form.caller_name(class="form-control" + (" is-invalid" if form.caller_name.errors else "")) }}
+                            {% for e in form.caller_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.phone_number.label(class="form-label") }} *
+                            {{ form.phone_number(class="form-control" + (" is-invalid" if form.phone_number.errors else "")) }}
+                            {% for e in form.phone_number.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.department.label(class="form-label") }}
+                            {{ form.department(class="form-select") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.call_type.label(class="form-label") }} *
+                            {{ form.call_type(class="form-select") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.priority.label(class="form-label") }}
+                            {{ form.priority(class="form-select") }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.reason_for_call.label(class="form-label") }} *
+                            {{ form.reason_for_call(class="form-control" + (" is-invalid" if form.reason_for_call.errors else ""), rows=3) }}
+                            {% for e in form.reason_for_call.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.assigned_to.label(class="form-label") }}
+                            {{ form.assigned_to(class="form-select") }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.notes.label(class="form-label") }}
+                            {{ form.notes(class="form-control", rows=2) }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.submit(class="btn btn-primary") }}
+                            <a href="{{ url_for('calls.list_calls') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
