@@ -9,6 +9,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _default_sqlite_uri():
+    """SQLite path that works on Vercel (/tmp) and locally."""
+    if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'):
+        return 'sqlite:////tmp/call_logging.db'
+    return 'sqlite:///' + os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), 'call_logging.db'
+    )
+
+
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
@@ -33,20 +42,13 @@ class Config:
 class DevelopmentConfig(Config):
     """Development configuration using SQLite."""
     DEBUG = True
-    # On Vercel the filesystem is ephemeral; prefer /tmp for SQLite
-    if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'):
-        _db_path = '/tmp/call_logging.db'
-    else:
-        _db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'call_logging.db')
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f'sqlite:///{_db_path}'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or _default_sqlite_uri()
 
 
 class ProductionConfig(Config):
-    """Production configuration. Prefer MySQL."""
+    """Production configuration. Uses DATABASE_URL when set, otherwise SQLite."""
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    if not SQLALCHEMY_DATABASE_URI:
-        raise ValueError('DATABASE_URL environment variable must be set in production')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or _default_sqlite_uri()
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
