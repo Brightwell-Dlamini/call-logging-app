@@ -73,23 +73,30 @@ def create_app(config_name=None):
     def health():
         return {'status': 'healthy', 'service': 'call-logging-app'}, 200
 
-    # Configure logging
+    # Configure logging (skip file handlers on Vercel / read-only FS)
     if not app.debug and not app.testing:
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
-        file_handler = RotatingFileHandler(
-            'logs/call_logging.log', maxBytes=10240000, backupCount=10
-        )
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
+        if not (os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV')):
+            try:
+                if not os.path.exists('logs'):
+                    os.mkdir('logs')
+                file_handler = RotatingFileHandler(
+                    'logs/call_logging.log', maxBytes=10240000, backupCount=10
+                )
+                file_handler.setFormatter(logging.Formatter(
+                    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+                ))
+                file_handler.setLevel(logging.INFO)
+                app.logger.addHandler(file_handler)
+            except OSError:
+                pass  # filesystem may be read-only
         app.logger.setLevel(logging.INFO)
         app.logger.info('Call Logging Application startup')
 
     # Create tables if needed (development convenience)
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            app.logger.warning('db.create_all failed: %s', e)
 
     return app
