@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<h2 class="mb-4"><i class="fas fa-cog me-2"></i>Admin Overview</h2>
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card"><div class="card-body">
+            <div class="text-muted small">Total Users</div>
+            <div class="fs-3 fw-bold">{{ user_count }}</div>
+            <a href="{{ url_for('admin.users') }}" class="small">Manage users →</a>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card"><div class="card-body">
+            <div class="text-muted small">Active Users</div>
+            <div class="fs-3 fw-bold text-success">{{ active_users }}</div>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card"><div class="card-body">
+            <div class="text-muted small">Active Departments</div>
+            <div class="fs-3 fw-bold">{{ dept_count }}</div>
+            <a href="{{ url_for('admin.departments') }}" class="small">Manage →</a>
+        </div></div>
+    </div>
+</div>
+<div class="card">
+    <div class="card-header"><strong>Recent System Activity</strong></div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Call</th><th>Details</th></tr></thead>
+            <tbody>
+                {% for a in recent_activities %}
+                <tr>
+                    <td>{{ a.ActivityDate.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ a.user.Username if a.user else '—' }}</td>
+                    <td>{{ a.Action }}</td>
+                    <td><a href="{{ url_for('calls.detail', call_id=a.CallID) }}">#{{ a.CallID }}</a></td>
+                    <td class="small text-muted">{{ a.Details or '' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-muted text-center">No activity yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
