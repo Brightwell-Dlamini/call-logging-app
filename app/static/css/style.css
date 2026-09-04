@@ -1,0 +1,69 @@
+/* CallLog Pro custom styles */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f4f6f9;
+}
+
+main {
+    flex: 1;
+}
+
+.stat-card {
+    border: none;
+    border-radius: 0.75rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    transition: transform 0.15s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-card .icon {
+    font-size: 2rem;
+    opacity: 0.8;
+}
+
+.priority-critical { color: #dc3545; font-weight: 600; }
+.priority-high { color: #fd7e14; font-weight: 600; }
+.priority-medium { color: #0d6efd; }
+.priority-low { color: #198754; }
+
+.status-open { background-color: #0d6efd; }
+.status-in-progress { background-color: #fd7e14; }
+.status-pending { background-color: #6c757d; }
+.status-resolved { background-color: #198754; }
+.status-closed { background-color: #212529; }
+
+.activity-timeline {
+    border-left: 3px solid #0d6efd;
+    padding-left: 1rem;
+}
+
+.activity-item {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.activity-item::before {
+    content: '';
+    position: absolute;
+    left: -1.35rem;
+    top: 0.35rem;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    background: #0d6efd;
+    border: 2px solid #fff;
+}
+
+.table-actions .btn {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.8rem;
+}
+
+.navbar-brand {
+    letter-spacing: 0.02em;
+}
