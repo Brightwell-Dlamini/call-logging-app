@@ -33,8 +33,12 @@ class Config:
 class DevelopmentConfig(Config):
     """Development configuration using SQLite."""
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'call_logging.db')
+    # On Vercel the filesystem is ephemeral; prefer /tmp for SQLite
+    if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'):
+        _db_path = '/tmp/call_logging.db'
+    else:
+        _db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'call_logging.db')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f'sqlite:///{_db_path}'
 
 
 class ProductionConfig(Config):
