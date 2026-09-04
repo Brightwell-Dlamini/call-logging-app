@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h2 class="mb-4"><i class="fas fa-chart-bar me-2"></i>Reports</h2>
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Daily Call Log</h5>
+                <p class="card-text text-muted">View all calls for a specific date.</p>
+                <form method="GET" action="{{ url_for('reports.daily') }}" class="d-flex gap-2">
+                    <input type="date" name="date" class="form-control form-control-sm">
+                    <button class="btn btn-primary btn-sm">View</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Monthly Summary</h5>
+                <p class="card-text text-muted">Statistics by status, type, and priority.</p>
+                <a href="{{ url_for('reports.monthly') }}" class="btn btn-primary btn-sm">Open</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Agent Performance</h5>
+                <p class="card-text text-muted">Resolution rates and satisfaction scores.</p>
+                <a href="{{ url_for('reports.agent_performance') }}" class="btn btn-primary btn-sm">Open</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">By Department</h5>
+                <p class="card-text text-muted">Call volume per department.</p>
+                <a href="{{ url_for('reports.by_department') }}" class="btn btn-primary btn-sm">Open</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Export</h5>
+                <p class="card-text text-muted">Download Excel or PDF summaries.</p>
+                <a href="{{ url_for('reports.export_excel') }}" class="btn btn-outline-success btn-sm me-1">Excel</a>
+                <a href="{{ url_for('reports.export_pdf') }}" class="btn btn-outline-danger btn-sm">PDF</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

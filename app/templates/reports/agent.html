@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">Agent Performance</h2>
+<form method="GET" class="mb-4">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">Select Agent</label>
+            <select name="agent_id" class="form-select" onchange="this.form.submit()">
+                <option value="">— Choose —</option>
+                {% for a in agents %}
+                <option value="{{ a.UserID }}" {% if selected_agent and selected_agent.UserID == a.UserID %}selected{% endif %}>{{ a.FullName }} ({{ a.Role }})</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</form>
+{% if metrics and selected_agent %}
+<div class="card mb-3"><div class="card-body">
+    <h5>{{ selected_agent.FullName }}</h5>
+    <div class="row text-center">
+        <div class="col"><div class="fs-3">{{ metrics.total }}</div><div class="text-muted">Calls Handled</div></div>
+        <div class="col"><div class="fs-3">{{ metrics.resolved }}</div><div class="text-muted">Resolved</div></div>
+        <div class="col"><div class="fs-3">{{ metrics.resolution_rate }}%</div><div class="text-muted">Resolution Rate</div></div>
+        <div class="col"><div class="fs-3">{{ metrics.avg_satisfaction or '—' }}</div><div class="text-muted">Avg Satisfaction</div></div>
+        <div class="col"><div class="fs-3">{{ metrics.avg_time or '—' }}</div><div class="text-muted">Avg Time (min)</div></div>
+    </div>
+</div></div>
+{% elif selected_agent is none and request.args.get('agent_id') %}
+<p class="text-muted">Agent not found.</p>
+{% else %}
+<p class="text-muted">Select an agent to view performance metrics.</p>
+{% endif %}
+{% endblock %}

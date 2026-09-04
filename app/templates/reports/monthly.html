@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">Monthly Summary – {{ year }}-{{ '%02d'|format(month) }}</h2>
+<form method="GET" class="row g-2 mb-4">
+    <div class="col-auto"><input type="number" name="year" value="{{ year }}" class="form-control form-control-sm" min="2020" max="2030"></div>
+    <div class="col-auto"><input type="number" name="month" value="{{ month }}" class="form-control form-control-sm" min="1" max="12"></div>
+    <div class="col-auto"><button class="btn btn-primary btn-sm">Update</button></div>
+</form>
+<div class="row g-3">
+    <div class="col-md-3"><div class="card"><div class="card-body text-center"><div class="fs-2 fw-bold">{{ total }}</div><div class="text-muted">Total Calls</div></div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body text-center"><div class="fs-2 fw-bold">{{ avg_time }}</div><div class="text-muted">Avg Time (min)</div></div></div></div>
+</div>
+<div class="row g-3 mt-2">
+    <div class="col-md-4">
+        <div class="card"><div class="card-header">By Status</div><ul class="list-group list-group-flush">
+            {% for k,v in by_status.items() %}<li class="list-group-item d-flex justify-content-between">{{ k }} <span class="badge bg-primary">{{ v }}</span></li>{% endfor %}
+        </ul></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card"><div class="card-header">By Type</div><ul class="list-group list-group-flush">
+            {% for k,v in by_type.items() %}<li class="list-group-item d-flex justify-content-between">{{ k }} <span class="badge bg-secondary">{{ v }}</span></li>{% endfor %}
+        </ul></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card"><div class="card-header">By Priority</div><ul class="list-group list-group-flush">
+            {% for k,v in by_priority.items() %}<li class="list-group-item d-flex justify-content-between">{{ k }} <span class="badge bg-info">{{ v }}</span></li>{% endfor %}
+        </ul></div>
+    </div>
+</div>
+{% endblock %}
