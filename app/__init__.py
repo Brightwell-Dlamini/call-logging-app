@@ -96,7 +96,49 @@ def create_app(config_name=None):
     with app.app_context():
         try:
             db.create_all()
+            # Bootstrap default admin when database is empty (e.g. Vercel cold start)
+            from app.models import User, Department
+            if User.query.count() == 0:
+                admin = User(
+                    Username='admin',
+                    Email='admin@calllog.local',
+                    FullName='System Administrator',
+                    Role='Admin',
+                    IsActive=True,
+                )
+                admin.set_password('admin123')
+                db.session.add(admin)
+                for name in ['IT', 'HR', 'Sales', 'Support', 'Billing']:
+                    if not Department.query.filter_by(DepartmentName=name).first():
+                        db.session.add(Department(DepartmentName=name, IsActive=True))
+                db.session.commit()
+                app.logger.info('Bootstrapped default admin user and departments')
         except Exception as e:
-            app.logger.warning('db.create_all failed: %s', e)
+            app.logger.warning('db bootstrap failed: %s', e)
+
+    # Optional one-time seed endpoint (safe: only creates admin if missing)
+    @app.route('/seed', methods=['POST', 'GET'])
+    def seed_endpoint():
+        from app.models import User, Department
+        created = []
+        if not User.query.filter_by(Username='admin').first():
+            admin = User(
+                Username='admin',
+                Email='admin@calllog.local',
+                FullName='System Administrator',
+                Role='Admin',
+                IsActive=True,
+            )
+            admin.set_password('admin123')
+            db.session.add(admin)
+            created.append('admin user')
+        for name in ['IT', 'HR', 'Sales', 'Support', 'Billing']:
+            if not Department.query.filter_by(DepartmentName=name).first():
+                db.session.add(Department(DepartmentName=name, IsActive=True))
+                created.append(f'dept:{name}')
+        if created:
+            db.session.commit()
+            return {'status': 'ok', 'created': created, 'login': 'admin / admin123'}, 200
+        return {'status': 'ok', 'message': 'Already seeded', 'login': 'admin / admin123'}, 200
 
     return app
