@@ -1,92 +1,77 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
-    <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Log Call</a>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Overview of call activity and performance</p>
+    </div>
+    <div class="page-actions">
+        <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Log call
+        </a>
+    </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body d-flex align-items-center">
-                <div class="flex-grow-1">
-                    <div class="text-muted small">Total Calls</div>
-                    <div class="fs-3 fw-bold">{{ stats.total_calls }}</div>
-                </div>
-                <i class="fas fa-phone icon text-primary"></i>
-            </div>
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fas fa-phone"></i></div>
+        <div>
+            <div class="stat-label">Total calls</div>
+            <div class="stat-value">{{ stats.total_calls }}</div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body d-flex align-items-center">
-                <div class="flex-grow-1">
-                    <div class="text-muted small">Open Calls</div>
-                    <div class="fs-3 fw-bold text-warning">{{ stats.open_calls }}</div>
-                </div>
-                <i class="fas fa-folder-open icon text-warning"></i>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon amber"><i class="fas fa-folder-open"></i></div>
+        <div>
+            <div class="stat-label">Open</div>
+            <div class="stat-value">{{ stats.open_calls }}</div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body d-flex align-items-center">
-                <div class="flex-grow-1">
-                    <div class="text-muted small">Resolved Today</div>
-                    <div class="fs-3 fw-bold text-success">{{ stats.resolved_today }}</div>
-                </div>
-                <i class="fas fa-check-circle icon text-success"></i>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-circle-check"></i></div>
+        <div>
+            <div class="stat-label">Resolved today</div>
+            <div class="stat-value">{{ stats.resolved_today }}</div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body d-flex align-items-center">
-                <div class="flex-grow-1">
-                    <div class="text-muted small">High Priority</div>
-                    <div class="fs-3 fw-bold text-danger">{{ stats.high_priority }}</div>
-                </div>
-                <i class="fas fa-exclamation-triangle icon text-danger"></i>
-            </div>
+    <div class="stat-card">
+        <div class="stat-icon rose"><i class="fas fa-triangle-exclamation"></i></div>
+        <div>
+            <div class="stat-label">High priority</div>
+            <div class="stat-value">{{ stats.high_priority }}</div>
         </div>
     </div>
 </div>
 
 <div class="row g-3 mb-4">
     <div class="col-lg-4">
-        <div class="card h-100">
-            <div class="card-header bg-white"><strong>Calls by Status</strong></div>
-            <div class="card-body">
-                <canvas id="statusChart" height="220"></canvas>
-            </div>
+        <div class="chart-panel">
+            <div class="chart-title">By status</div>
+            <canvas id="statusChart" height="220"></canvas>
         </div>
     </div>
     <div class="col-lg-4">
-        <div class="card h-100">
-            <div class="card-header bg-white"><strong>Calls per Day (Last 7 Days)</strong></div>
-            <div class="card-body">
-                <canvas id="dailyChart" height="220"></canvas>
-            </div>
+        <div class="chart-panel">
+            <div class="chart-title">Last 7 days</div>
+            <canvas id="dailyChart" height="220"></canvas>
         </div>
     </div>
     <div class="col-lg-4">
-        <div class="card h-100">
-            <div class="card-header bg-white"><strong>Calls by Department</strong></div>
-            <div class="card-body">
-                <canvas id="deptChart" height="220"></canvas>
-            </div>
+        <div class="chart-panel">
+            <div class="chart-title">By department</div>
+            <canvas id="deptChart" height="220"></canvas>
         </div>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header bg-white d-flex justify-content-between">
-        <strong>Recent Calls</strong>
-        <a href="{{ url_for('calls.list_calls') }}">View all</a>
+<div class="table-wrap">
+    <div class="card-header">
+        <span>Recent calls</span>
+        <a href="{{ url_for('calls.list_calls') }}" class="btn btn-ghost btn-sm">View all</a>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="table">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -100,15 +85,26 @@
             <tbody>
                 {% for c in stats.recent_calls %}
                 <tr>
-                    <td>#{{ c.CallID }}</td>
-                    <td>{{ c.CallerName }}</td>
+                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}">#{{ c.CallID }}</a></td>
+                    <td class="fw-medium" style="color:var(--cl-text)">{{ c.CallerName }}</td>
                     <td><span class="badge status-{{ c.Status|lower|replace(' ', '-') }}">{{ c.Status }}</span></td>
                     <td class="priority-{{ c.Priority|lower }}">{{ c.Priority }}</td>
-                    <td>{{ c.DateLogged.strftime('%Y-%m-%d %H:%M') if c.DateLogged else '' }}</td>
-                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="btn btn-sm btn-outline-primary">View</a></td>
+                    <td>{{ c.DateLogged.strftime('%b %d, %Y · %H:%M') if c.DateLogged else '—' }}</td>
+                    <td class="table-actions">
+                        <a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="btn btn-ghost btn-sm btn-icon" title="View">
+                            <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6" class="text-center text-muted">No calls yet.</td></tr>
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-phone"></i></div>
+                            <p>No calls yet. Log your first call to get started.</p>
+                        </div>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -121,32 +117,71 @@
 const statusData = {{ stats.status_counts | tojson }};
 const dailyData = {{ stats.calls_per_day | tojson }};
 const deptData = {{ stats.dept_counts | tojson }};
-
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: {
+    legend: {
+      position: 'bottom',
+      labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'circle', padding: 16, font: { family: 'Inter', size: 12 } }
+    }
+  }
+};
 new Chart(document.getElementById('statusChart'), {
     type: 'doughnut',
     data: {
         labels: Object.keys(statusData),
-        datasets: [{ data: Object.values(statusData), backgroundColor: ['#0d6efd','#fd7e14','#6c757d','#198754','#212529'] }]
+        datasets: [{
+          data: Object.values(statusData),
+          backgroundColor: ['#6366F1','#F59E0B','#94A3B8','#10B981','#0F172A'],
+          borderWidth: 0,
+          hoverOffset: 4
+        }]
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    options: { ...chartDefaults, cutout: '68%' }
 });
-
 new Chart(document.getElementById('dailyChart'), {
     type: 'bar',
     data: {
         labels: Object.keys(dailyData),
-        datasets: [{ label: 'Calls', data: Object.values(dailyData), backgroundColor: '#0d6efd' }]
+        datasets: [{
+          label: 'Calls',
+          data: Object.values(dailyData),
+          backgroundColor: '#6366F1',
+          borderRadius: 6,
+          maxBarThickness: 32
+        }]
     },
-    options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    options: {
+      ...chartDefaults,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 11 } } },
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 11 } }, grid: { color: '#F1F5F9' } }
+      }
+    }
 });
-
 new Chart(document.getElementById('deptChart'), {
     type: 'bar',
     data: {
         labels: Object.keys(deptData),
-        datasets: [{ label: 'Calls', data: Object.values(deptData), backgroundColor: '#20c997' }]
+        datasets: [{
+          label: 'Calls',
+          data: Object.values(deptData),
+          backgroundColor: '#8B5CF6',
+          borderRadius: 6,
+          maxBarThickness: 24
+        }]
     },
-    options: { responsive: true, indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    options: {
+      ...chartDefaults,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 11 } }, grid: { color: '#F1F5F9' } },
+        y: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 11 } } }
+      }
+    }
 });
 </script>
 {% endblock %}
