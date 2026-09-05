@@ -6,7 +6,7 @@ from io import StringIO
 import csv
 from flask import (
     Blueprint, render_template, redirect, url_for, flash, request,
-    Response, abort
+    Response, abort, jsonify
 )
 from flask_login import login_required, current_user
 from sqlalchemy import or_
@@ -20,6 +20,7 @@ calls_bp = Blueprint('calls', __name__, url_prefix='/calls')
 
 
 def _populate_agent_choices(form):
+    """Populate Assign To dropdown with active agents/managers."""
     agents = User.query.filter(
         User.IsActive == True,
         User.Role.in_(['Agent', 'Manager', 'Admin'])
@@ -30,6 +31,7 @@ def _populate_agent_choices(form):
 
 
 def _populate_department_choices(form):
+    """Populate department dropdown."""
     depts = Department.query.filter_by(IsActive=True).order_by(Department.DepartmentName).all()
     form.department.choices = [('', '— Select —')] + [
         (d.DepartmentName, d.DepartmentName) for d in depts
@@ -40,6 +42,7 @@ def _populate_department_choices(form):
 @login_required
 @login_required_active
 def list_calls():
+    """Paginated, filterable, searchable call list."""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
     if per_page not in (10, 25, 50):
@@ -86,8 +89,8 @@ def list_calls():
             pass
     if date_to:
         try:
-            query = query.filter(CallLog.DateLogged <= datetime.strptime(date_to, '%Y-%m-%d') +
-                                 __import__('datetime').timedelta(days=1))
+            from datetime import timedelta
+            query = query.filter(CallLog.DateLogged <= datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1))
         except ValueError:
             pass
 
@@ -98,9 +101,9 @@ def list_calls():
             (CallLog.Priority == 'Medium', 3),
             else_=4
         )
-        query = query.order_by(priority_order)
+        query = query.order_by(priority_order, CallLog.DateLogged.desc())
     elif sort == 'status':
-        query = query.order_by(CallLog.Status)
+        query = query.order_by(CallLog.Status, CallLog.DateLogged.desc())
     else:
         query = query.order_by(CallLog.DateLogged.desc())
 
@@ -108,15 +111,13 @@ def list_calls():
     calls = pagination.items
 
     departments = Department.query.filter_by(IsActive=True).order_by(Department.DepartmentName).all()
-    agents = User.query.filter(User.IsActive == True).order_by(User.FullName).all()
 
     return render_template(
         'calls/list.html',
         calls=calls,
         pagination=pagination,
         departments=departments,
-        agents=agents,
-        title='Call List'
+        title='Calls'
     )
 
 
@@ -125,6 +126,7 @@ def list_calls():
 @login_required_active
 @agent_required
 def new_call():
+    """Create a new call log entry."""
     form = CallLogForm()
     _populate_department_choices(form)
     _populate_agent_choices(form)
@@ -170,6 +172,7 @@ def new_call():
 @login_required
 @login_required_active
 def detail(call_id):
+    """Call detail view with activity log and update forms."""
     call = CallLog.query.get_or_404(call_id)
     update_form = CallUpdateForm(obj=call)
     if call.SatisfactionRating:
@@ -181,6 +184,10 @@ def detail(call_id):
         assign_form.assigned_to.data = call.AssignedTo
 
     activities = call.activities.order_by(CallActivity.ActivityDate.desc()).all()
+    related_count = CallLog.query.filter(
+        CallLog.PhoneNumber == call.PhoneNumber,
+        CallLog.CallID != call.CallID
+    ).count()
 
     ctx = dict(
         call=call,
@@ -188,6 +195,7 @@ def detail(call_id):
         note_form=note_form,
         assign_form=assign_form,
         activities=activities,
+        related_count=related_count,
         title=f'Call #{call.CallID}'
     )
     if request.args.get('partial') == '1' or request.headers.get('X-Partial') == '1':
@@ -200,6 +208,7 @@ def detail(call_id):
 @login_required_active
 @agent_required
 def update_call(call_id):
+    """Update status, resolution, time spent, rating."""
     call = CallLog.query.get_or_404(call_id)
     form = CallUpdateForm()
     if form.validate_on_submit():
@@ -215,12 +224,14 @@ def update_call(call_id):
 
         details = f'Status changed from {old_status} to {call.Status}'
         if form.resolution.data:
-            details += f'; Resolution updated'
+            details += '; Resolution updated'
         log_activity(call.CallID, current_user.UserID, 'Updated', details)
         db.session.commit()
         flash('Call updated successfully.', 'success')
     else:
         flash('Validation error while updating call.', 'danger')
+    if request.form.get('return_to') == 'list' or request.args.get('return_to') == 'list':
+        return redirect(url_for('calls.list_calls'))
     return redirect(url_for('calls.detail', call_id=call_id))
 
 
@@ -229,6 +240,7 @@ def update_call(call_id):
 @login_required_active
 @agent_required
 def add_note(call_id):
+    """Append a note to the call."""
     call = CallLog.query.get_or_404(call_id)
     form = NoteForm()
     if form.validate_on_submit():
@@ -251,6 +263,7 @@ def add_note(call_id):
 @login_required_active
 @agent_required
 def assign_call(call_id):
+    """Assign or reassign a call."""
     call = CallLog.query.get_or_404(call_id)
     form = AssignForm()
     _populate_agent_choices(form)
@@ -274,32 +287,108 @@ def assign_call(call_id):
     return redirect(url_for('calls.detail', call_id=call_id))
 
 
+@calls_bp.route('/bulk', methods=['POST'])
+@login_required
+@login_required_active
+@agent_required
+def bulk_update():
+    """Bulk status change for selected calls (JSON or form)."""
+    data = request.get_json(silent=True) or {}
+    ids = data.get('ids') or request.form.getlist('ids')
+    action = (data.get('action') or request.form.get('action') or '').strip().lower()
+
+    status_map = {
+        'progress': 'In Progress',
+        'in_progress': 'In Progress',
+        'resolve': 'Resolved',
+        'resolved': 'Resolved',
+        'pending': 'Pending',
+        'close': 'Closed',
+        'closed': 'Closed',
+        'open': 'Open',
+    }
+    new_status = status_map.get(action)
+    if not new_status:
+        return jsonify(ok=False, error='Unknown action'), 400
+
+    try:
+        ids = [int(i) for i in ids]
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error='Invalid ids'), 400
+
+    if not ids:
+        return jsonify(ok=False, error='No calls selected'), 400
+
+    ids = ids[:100]
+    calls_q = CallLog.query.filter(CallLog.CallID.in_(ids)).all()
+    updated = 0
+    for call in calls_q:
+        old = call.Status
+        if old == new_status:
+            continue
+        call.Status = new_status
+        call.LastUpdated = datetime.utcnow()
+        if new_status in ('Resolved', 'Closed') and not call.Resolution:
+            call.Resolution = f'Bulk marked {new_status} by {current_user.FullName}'
+        log_activity(
+            call.CallID,
+            current_user.UserID,
+            'Bulk Update',
+            f'Status {old} → {new_status}'
+        )
+        updated += 1
+    db.session.commit()
+    return jsonify(
+        ok=True,
+        updated=updated,
+        status=new_status,
+        message=f'{updated} call(s) set to {new_status}',
+    )
+
+
 @calls_bp.route('/export')
 @login_required
 @login_required_active
 def export_csv():
+    """Export filtered calls to CSV."""
     query = CallLog.query.order_by(CallLog.DateLogged.desc())
     status = request.args.get('status')
     if status:
         query = query.filter(CallLog.Status == status)
+    priority = request.args.get('priority')
+    if priority:
+        query = query.filter(CallLog.Priority == priority)
+    department = request.args.get('department')
+    if department:
+        query = query.filter(CallLog.Department == department)
+    assigned_to = request.args.get('assigned_to', type=int)
+    if assigned_to:
+        query = query.filter(CallLog.AssignedTo == assigned_to)
+    search = request.args.get('search', '').strip()
+    if search:
+        like = f'%{search}%'
+        query = query.filter(or_(
+            CallLog.CallerName.ilike(like),
+            CallLog.PhoneNumber.ilike(like)
+        ))
 
-    si = StringIO()
-    writer = csv.writer(si)
+    output = StringIO()
+    writer = csv.writer(output)
     writer.writerow([
         'CallID', 'CallerName', 'PhoneNumber', 'Department', 'CallType',
-        'Priority', 'Status', 'AssignedTo', 'DateLogged', 'TimeSpent', 'SatisfactionRating'
+        'Priority', 'Status', 'AssignedTo', 'DateLogged', 'ReasonForCall', 'Resolution'
     ])
     for c in query.limit(5000).all():
         writer.writerow([
-            c.CallID, c.CallerName, c.PhoneNumber, c.Department or '',
-            c.CallType, c.Priority, c.Status,
+            c.CallID, c.CallerName, c.PhoneNumber, c.Department or '', c.CallType,
+            c.Priority, c.Status,
             c.assignee.FullName if c.assignee else '',
             c.DateLogged.isoformat() if c.DateLogged else '',
-            c.TimeSpent or '', c.SatisfactionRating or ''
+            c.ReasonForCall or '',
+            c.Resolution or '',
         ])
-    output = si.getvalue()
     return Response(
-        output,
+        output.getvalue(),
         mimetype='text/csv',
         headers={'Content-Disposition': 'attachment; filename=calls_export.csv'}
     )
@@ -307,11 +396,13 @@ def export_csv():
 
 @calls_bp.route('/<int:call_id>/delete', methods=['POST'])
 @login_required
+@login_required_active
 @admin_required
 def delete_call(call_id):
+    """Hard-delete a call (admin only)."""
     call = CallLog.query.get_or_404(call_id)
-    log_activity(call.CallID, current_user.UserID, 'Deleted', f'Call deleted by {current_user.FullName}')
+    cid = call.CallID
     db.session.delete(call)
     db.session.commit()
-    flash(f'Call #{call_id} has been deleted.', 'warning')
+    flash(f'Call #{cid} deleted.', 'success')
     return redirect(url_for('calls.list_calls'))
