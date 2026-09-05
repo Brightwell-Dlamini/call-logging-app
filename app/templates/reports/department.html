@@ -1,14 +1,41 @@
 {% extends "base.html" %}
+{% block title %}By department{% endblock %}
 {% block content %}
-<h2 class="mb-3">Calls by Department</h2>
-<div class="card">
-    <table class="table mb-0">
-        <thead class="table-light"><tr><th>Department</th><th>Call Count</th></tr></thead>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">By department</h1>
+        <p class="page-subtitle">Call volume per team</p>
+    </div>
+    <div class="page-actions">
+        <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Reports
+        </a>
+    </div>
+</div>
+
+<div class="table-wrap" style="max-width:560px;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Department</th>
+                <th style="text-align:right;">Calls</th>
+            </tr>
+        </thead>
         <tbody>
             {% for name, count in results %}
-            <tr><td>{{ name }}</td><td><span class="badge bg-primary">{{ count }}</span></td></tr>
+            <tr>
+                <td class="fw-medium" style="color:var(--cl-text)">{{ name }}</td>
+                <td style="text-align:right;"><span class="badge status-open">{{ count }}</span></td>
+            </tr>
             {% else %}
-            <tr><td colspan="2" class="text-muted text-center">No data.</td></tr>
+            <tr>
+                <td colspan="2">
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fas fa-building"></i></div>
+                        <p>No data available.</p>
+                    </div>
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>

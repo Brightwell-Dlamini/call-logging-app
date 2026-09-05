@@ -1,30 +1,102 @@
 {% extends "base.html" %}
+{% block title %}Monthly summary{% endblock %}
 {% block content %}
-<h2 class="mb-3">Monthly Summary – {{ year }}-{{ '%02d'|format(month) }}</h2>
-<form method="GET" class="row g-2 mb-4">
-    <div class="col-auto"><input type="number" name="year" value="{{ year }}" class="form-control form-control-sm" min="2020" max="2030"></div>
-    <div class="col-auto"><input type="number" name="month" value="{{ month }}" class="form-control form-control-sm" min="1" max="12"></div>
-    <div class="col-auto"><button class="btn btn-primary btn-sm">Update</button></div>
-</form>
-<div class="row g-3">
-    <div class="col-md-3"><div class="card"><div class="card-body text-center"><div class="fs-2 fw-bold">{{ total }}</div><div class="text-muted">Total Calls</div></div></div></div>
-    <div class="col-md-3"><div class="card"><div class="card-body text-center"><div class="fs-2 fw-bold">{{ avg_time }}</div><div class="text-muted">Avg Time (min)</div></div></div></div>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Monthly summary</h1>
+        <p class="page-subtitle">{{ year }}-{{ '%02d'|format(month) }}</p>
+    </div>
+    <div class="page-actions">
+        <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Reports
+        </a>
+    </div>
 </div>
-<div class="row g-3 mt-2">
+
+<div class="filter-bar mb-4">
+    <form method="GET" class="row align-items-end g-2">
+        <div class="col-auto">
+            <label class="form-label">Year</label>
+            <input type="number" name="year" value="{{ year }}" class="form-control" min="2020" max="2030" style="width:100px;">
+        </div>
+        <div class="col-auto">
+            <label class="form-label">Month</label>
+            <input type="number" name="month" value="{{ month }}" class="form-control" min="1" max="12" style="width:80px;">
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary">Update</button>
+        </div>
+    </form>
+</div>
+
+<div class="stat-grid" style="grid-template-columns: repeat(2, 1fr); max-width: 480px;">
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fas fa-phone"></i></div>
+        <div>
+            <div class="stat-label">Total calls</div>
+            <div class="stat-value">{{ total }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon violet"><i class="fas fa-clock"></i></div>
+        <div>
+            <div class="stat-label">Avg time (min)</div>
+            <div class="stat-value">{{ avg_time }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
     <div class="col-md-4">
-        <div class="card"><div class="card-header">By Status</div><ul class="list-group list-group-flush">
-            {% for k,v in by_status.items() %}<li class="list-group-item d-flex justify-content-between">{{ k }} <span class="badge bg-primary">{{ v }}</span></li>{% endfor %}
-        </ul></div>
+        <div class="cl-card">
+            <div class="cl-card-header">By status</div>
+            <div class="cl-card-body p-0">
+                <ul class="meta-list" style="padding:0 18px;">
+                    {% for k,v in by_status.items() %}
+                    <li>
+                        <span class="meta-label">{{ k }}</span>
+                        <span class="badge status-{{ k|lower|replace(' ', '-') }}">{{ v }}</span>
+                    </li>
+                    {% else %}
+                    <li><span class="meta-label text-muted">No data</span></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
     </div>
     <div class="col-md-4">
-        <div class="card"><div class="card-header">By Type</div><ul class="list-group list-group-flush">
-            {% for k,v in by_type.items() %}<li class="list-group-item d-flex justify-content-between">{{ k }} <span class="badge bg-secondary">{{ v }}</span></li>{% endfor %}
-        </ul></div>
+        <div class="cl-card">
+            <div class="cl-card-header">By type</div>
+            <div class="cl-card-body p-0">
+                <ul class="meta-list" style="padding:0 18px;">
+                    {% for k,v in by_type.items() %}
+                    <li>
+                        <span class="meta-label">{{ k }}</span>
+                        <span class="meta-value">{{ v }}</span>
+                    </li>
+                    {% else %}
+                    <li><span class="meta-label text-muted">No data</span></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
     </div>
     <div class="col-md-4">
-        <div class="card"><div class="card-header">By Priority</div><ul class="list-group list-group-flush">
-            {% for k,v in by_priority.items() %}<li class="list-group-item d-flex justify-content-between">{{ k }} <span class="badge bg-info">{{ v }}</span></li>{% endfor %}
-        </ul></div>
+        <div class="cl-card">
+            <div class="cl-card-header">By priority</div>
+            <div class="cl-card-body p-0">
+                <ul class="meta-list" style="padding:0 18px;">
+                    {% for k,v in by_priority.items() %}
+                    <li>
+                        <span class="meta-label">{{ k }}</span>
+                        <span class="badge badge-{{ k|lower }}">{{ v }}</span>
+                    </li>
+                    {% else %}
+                    <li><span class="meta-label text-muted">No data</span></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

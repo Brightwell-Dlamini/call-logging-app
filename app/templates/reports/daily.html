@@ -1,27 +1,54 @@
 {% extends "base.html" %}
+{% block title %}Daily report{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between mb-3">
-    <h2>Daily Report – {{ selected_date }}</h2>
-    <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary btn-sm">Back</a>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Daily report</h1>
+        <p class="page-subtitle">{{ selected_date }}</p>
+    </div>
+    <div class="page-actions">
+        <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Reports
+        </a>
+    </div>
 </div>
-<div class="card">
+
+<div class="table-wrap">
     <div class="table-responsive">
-        <table class="table table-sm table-striped mb-0">
-            <thead><tr><th>ID</th><th>Caller</th><th>Phone</th><th>Dept</th><th>Type</th><th>Priority</th><th>Status</th><th>Time</th></tr></thead>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Caller</th>
+                    <th>Phone</th>
+                    <th>Dept</th>
+                    <th>Type</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
             <tbody>
                 {% for c in calls %}
                 <tr>
                     <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}">#{{ c.CallID }}</a></td>
-                    <td>{{ c.CallerName }}</td>
+                    <td class="fw-medium" style="color:var(--cl-text)">{{ c.CallerName }}</td>
                     <td>{{ c.PhoneNumber }}</td>
                     <td>{{ c.Department or '—' }}</td>
                     <td>{{ c.CallType }}</td>
-                    <td>{{ c.Priority }}</td>
-                    <td>{{ c.Status }}</td>
+                    <td><span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span></td>
+                    <td><span class="badge status-{{ c.Status|lower|replace(' ', '-') }}">{{ c.Status }}</span></td>
                     <td>{{ c.DateLogged.strftime('%H:%M') if c.DateLogged else '' }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8" class="text-center text-muted">No calls on this date.</td></tr>
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <div class="empty-icon"><i class="fas fa-calendar"></i></div>
+                            <p>No calls on this date.</p>
+                        </div>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>

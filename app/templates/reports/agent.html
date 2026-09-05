@@ -1,33 +1,71 @@
 {% extends "base.html" %}
+{% block title %}Agent performance{% endblock %}
 {% block content %}
-<h2 class="mb-3">Agent Performance</h2>
-<form method="GET" class="mb-4">
-    <div class="row g-2 align-items-end">
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Agent performance</h1>
+        <p class="page-subtitle">Resolution rates and satisfaction by agent</p>
+    </div>
+    <div class="page-actions">
+        <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Reports
+        </a>
+    </div>
+</div>
+
+<div class="filter-bar mb-4">
+    <form method="GET" class="row align-items-end">
         <div class="col-md-4">
-            <label class="form-label">Select Agent</label>
+            <label class="form-label">Select agent</label>
             <select name="agent_id" class="form-select" onchange="this.form.submit()">
                 <option value="">— Choose —</option>
                 {% for a in agents %}
-                <option value="{{ a.UserID }}" {% if selected_agent and selected_agent.UserID == a.UserID %}selected{% endif %}>{{ a.FullName }} ({{ a.Role }})</option>
+                <option value="{{ a.UserID }}" {% if selected_agent and selected_agent.UserID == a.UserID %}selected{% endif %}>
+                    {{ a.FullName }} ({{ a.Role }})
+                </option>
                 {% endfor %}
             </select>
         </div>
-    </div>
-</form>
+    </form>
+</div>
+
 {% if metrics and selected_agent %}
-<div class="card mb-3"><div class="card-body">
-    <h5>{{ selected_agent.FullName }}</h5>
-    <div class="row text-center">
-        <div class="col"><div class="fs-3">{{ metrics.total }}</div><div class="text-muted">Calls Handled</div></div>
-        <div class="col"><div class="fs-3">{{ metrics.resolved }}</div><div class="text-muted">Resolved</div></div>
-        <div class="col"><div class="fs-3">{{ metrics.resolution_rate }}%</div><div class="text-muted">Resolution Rate</div></div>
-        <div class="col"><div class="fs-3">{{ metrics.avg_satisfaction or '—' }}</div><div class="text-muted">Avg Satisfaction</div></div>
-        <div class="col"><div class="fs-3">{{ metrics.avg_time or '—' }}</div><div class="text-muted">Avg Time (min)</div></div>
+<div class="cl-card mb-3">
+    <div class="cl-card-header">{{ selected_agent.FullName }}</div>
+    <div class="cl-card-body">
+        <div class="stat-grid" style="margin-bottom:0;grid-template-columns:repeat(5,1fr);">
+            <div>
+                <div class="stat-label">Calls handled</div>
+                <div class="stat-value" style="font-size:1.375rem;">{{ metrics.total }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Resolved</div>
+                <div class="stat-value" style="font-size:1.375rem;">{{ metrics.resolved }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Resolution rate</div>
+                <div class="stat-value" style="font-size:1.375rem;">{{ metrics.resolution_rate }}%</div>
+            </div>
+            <div>
+                <div class="stat-label">Avg satisfaction</div>
+                <div class="stat-value" style="font-size:1.375rem;">{{ metrics.avg_satisfaction or '—' }}</div>
+            </div>
+            <div>
+                <div class="stat-label">Avg time (min)</div>
+                <div class="stat-value" style="font-size:1.375rem;">{{ metrics.avg_time or '—' }}</div>
+            </div>
+        </div>
     </div>
-</div></div>
+</div>
 {% elif selected_agent is none and request.args.get('agent_id') %}
-<p class="text-muted">Agent not found.</p>
+<div class="empty-state">
+    <div class="empty-icon"><i class="fas fa-user"></i></div>
+    <p>Agent not found.</p>
+</div>
 {% else %}
-<p class="text-muted">Select an agent to view performance metrics.</p>
+<div class="empty-state">
+    <div class="empty-icon"><i class="fas fa-user-check"></i></div>
+    <p>Select an agent to view performance metrics.</p>
+</div>
 {% endif %}
 {% endblock %}
