@@ -22,6 +22,7 @@
     <link href="{{ url_for('static', filename='css/pro4.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/pro5.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/board.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/upgrades.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -151,7 +152,7 @@
   <div class="cmd-palette" role="dialog" aria-label="Command palette">
     <div class="cmd-input-wrap">
       <i class="fas fa-magnifying-glass"></i>
-      <input type="text" id="cmdInput" placeholder="Jump to…" autocomplete="off" spellcheck="false">
+      <input type="text" id="cmdInput" placeholder="Search calls, jump to…" autocomplete="off" spellcheck="false">
       <kbd>esc</kbd>
     </div>
     <ul class="cmd-list" id="cmdList"></ul>
@@ -201,6 +202,7 @@
     <script src="{{ url_for('static', filename='js/pro2.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pro3.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pro4.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/upgrades.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
