@@ -44,6 +44,7 @@ def create_app(config_name=None):
     from app.blueprints.admin import admin_bp
     from app.blueprints.reports import reports_bp
     from app.blueprints.api import api_bp
+    from app.blueprints.board import board_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -51,6 +52,7 @@ def create_app(config_name=None):
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(reports_bp, url_prefix='/reports')
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(board_bp)
 
     @app.errorhandler(404)
     def not_found_error(error):
