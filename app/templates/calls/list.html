@@ -54,7 +54,7 @@
 
 <div class="quick-filters">
     {% set st = request.args.get('status', '') %}
-    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st and not request.args.get('priority') and not request.args.get('assigned_to') %}active{% endif %}">All</a>
+    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st and not request.args.get('priority') and not request.args.get('assigned_to') and not request.args.get('unassigned') %}active{% endif %}">All</a>
     {% for s in ['Open','In Progress','Pending','Resolved','Closed'] %}
     <a href="{{ url_for('calls.list_calls', status=s, search=request.args.get('search',''), priority=request.args.get('priority',''), department=request.args.get('department','')) }}"
        class="chip {% if st == s %}active{% endif %}">{{ s }}</a>
@@ -65,17 +65,18 @@
     <a href="{{ url_for('calls.list_calls', assigned_to=current_user.UserID) }}" class="chip {% if request.args.get('assigned_to')|string == current_user.UserID|string %}active{% endif %}">
         <i class="fas fa-user" style="font-size:0.65rem;margin-right:4px"></i> Assigned to me
     </a>
+    <a href="{{ url_for('calls.list_calls', unassigned=1) }}" class="chip {% if request.args.get('unassigned') %}active{% endif %}">Unassigned</a>
 </div>
 
 <div class="filter-pills" id="filterPills"></div>
 
 <div class="filter-bar">
     <form method="GET" class="row align-items-end g-2">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label class="form-label">Search</label>
             <input type="text" name="search" value="{{ request.args.get('search', '') }}" class="form-control" placeholder="ID, name, phone…" id="inboxSearch">
         </div>
-        <div class="col-md-2">
+        <div class="col-md-1">
             <label class="form-label">Priority</label>
             <select name="priority" class="form-select">
                 <option value="">All</option>
@@ -93,8 +94,17 @@
                 {% endfor %}
             </select>
         </div>
-        <input type="hidden" name="status" value="{{ request.args.get('status', '') }}">
         <div class="col-md-2">
+            <label class="form-label">From</label>
+            <input type="date" name="date_from" value="{{ request.args.get('date_from', '') }}" class="form-control">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">To</label>
+            <input type="date" name="date_to" value="{{ request.args.get('date_to', '') }}" class="form-control">
+        </div>
+        <input type="hidden" name="status" value="{{ request.args.get('status', '') }}">
+        {% if request.args.get('unassigned') %}<input type="hidden" name="unassigned" value="1">{% endif %}
+        <div class="col-md-1">
             <label class="form-label">Sort</label>
             <select name="sort" class="form-select">
                 <option value="date_desc" {% if request.args.get('sort', 'date_desc') == 'date_desc' %}selected{% endif %}>Newest</option>
@@ -110,7 +120,7 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-1">
             <button type="submit" class="btn btn-primary w-100">Apply</button>
         </div>
     </form>
@@ -170,12 +180,8 @@
                     <td>
                         {% if c.Status in ['Resolved','Closed'] %}
                         <span class="sla-chip ok">Done</span>
-                        {% elif c.Priority == 'Critical' %}
-                        <span class="sla-chip overdue" data-sla data-logged="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}" data-target-hours="2">—</span>
-                        {% elif c.Priority == 'High' %}
-                        <span class="sla-chip warning" data-sla data-logged="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}" data-target-hours="8">—</span>
                         {% else %}
-                        <span class="sla-chip ok" data-sla data-logged="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}" data-target-hours="24">—</span>
+                        <span class="sla-chip {{ c|sla_badge }}">{{ c|sla_badge }}</span>
                         {% endif %}
                     </td>
                     <td>{{ c.assignee.FullName.split()[0] if c.assignee else '—' }}</td>
