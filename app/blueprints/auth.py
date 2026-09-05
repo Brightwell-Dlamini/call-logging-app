@@ -13,8 +13,6 @@ from app.utils.decorators import admin_required
 
 auth_bp = Blueprint('auth', __name__)
 
-
-# Simple in-memory lockout store (use Redis in production)
 _login_attempts = {}
 
 
@@ -24,7 +22,6 @@ def _is_locked(username: str) -> bool:
         return False
     if datetime.utcnow() < entry['locked_until']:
         return True
-    # Lock expired
     del _login_attempts[username]
     return False
 
@@ -45,46 +42,38 @@ def _clear_attempts(username: str) -> None:
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit('10 per minute')
 def login():
-    """User login page."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
-
     form = LoginForm()
     if form.validate_on_submit():
         username = form.username.data.strip()
         if _is_locked(username):
             flash('Account temporarily locked due to too many failed attempts. Try again later.', 'danger')
             return render_template('auth/login.html', form=form)
-
         user = User.query.filter_by(Username=username).first()
         if user is None or not user.check_password(form.password.data):
             _record_failed_attempt(username)
             flash('Invalid username or password.', 'danger')
             return render_template('auth/login.html', form=form)
-
         if not user.IsActive:
             flash('Your account is inactive. Contact an administrator.', 'warning')
             return render_template('auth/login.html', form=form)
-
         _clear_attempts(username)
         login_user(user, remember=form.remember_me.data)
         user.LastLogin = datetime.utcnow()
         db.session.commit()
         session.permanent = True
-
         next_page = request.args.get('next')
         if not next_page or not next_page.startswith('/'):
             next_page = url_for('dashboard.index')
         flash(f'Welcome back, {user.FullName}.', 'success')
         return redirect(next_page)
-
     return render_template('auth/login.html', form=form)
 
 
 @auth_bp.route('/logout')
 @login_required
 def logout():
-    """Log out the current user."""
     logout_user()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
@@ -94,7 +83,6 @@ def logout():
 @login_required
 @admin_required
 def register():
-    """Admin-only user registration."""
     form = RegistrationForm()
     if form.validate_on_submit():
         user = User(
@@ -109,3 +97,10 @@ def register():
         flash(f'User {user.Username} created successfully.', 'success')
         return redirect(url_for('admin.users'))
     return render_template('auth/register.html', form=form)
+
+
+@auth_bp.route('/settings')
+@login_required
+def settings():
+    """Profile / preferences shell (frontend-first)."""
+    return render_template('auth/settings.html', title='Settings')
