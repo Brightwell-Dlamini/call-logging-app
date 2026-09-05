@@ -15,25 +15,24 @@
 
 <div class="table-wrap">
     <div class="table-responsive">
-        <table class="table">
+        <table class="table table-dense">
             <thead>
                 <tr>
-                    <th>Username</th>
                     <th>Name</th>
+                    <th>Username</th>
                     <th>Email</th>
                     <th>Role</th>
                     <th>Status</th>
-                    <th>Last login</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for u in users %}
                 <tr>
-                    <td class="fw-medium" style="color:var(--cl-text)">{{ u.Username }}</td>
-                    <td>{{ u.FullName }}</td>
+                    <td class="fw-medium" style="color:var(--cl-text)">{{ u.FullName }}</td>
+                    <td>{{ u.Username }}</td>
                     <td>{{ u.Email }}</td>
-                    <td><span class="badge status-pending">{{ u.Role }}</span></td>
+                    <td><span class="role-badge {{ u.Role|lower }}">{{ u.Role }}</span></td>
                     <td>
                         {% if u.IsActive %}
                         <span class="badge status-resolved">Active</span>
@@ -41,19 +40,14 @@
                         <span class="badge status-closed">Inactive</span>
                         {% endif %}
                     </td>
-                    <td>{{ u.LastLogin.strftime('%b %d, %Y') if u.LastLogin else '—' }}</td>
                     <td class="table-actions">
-                        <a href="{{ url_for('admin.edit_user', user_id=u.UserID) }}" class="btn btn-ghost btn-sm">Edit</a>
-                        {% if u.UserID != current_user.UserID %}
-                        <form method="POST" action="{{ url_for('admin.toggle_user', user_id=u.UserID) }}" class="d-inline">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-ghost btn-sm">
-                                {{ 'Deactivate' if u.IsActive else 'Activate' }}
-                            </button>
-                        </form>
-                        {% endif %}
+                        <a href="{{ url_for('admin.edit_user', user_id=u.UserID) }}" class="btn btn-ghost btn-sm btn-icon" title="Edit">
+                            <i class="fas fa-pen"></i>
+                        </a>
                     </td>
                 </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No users yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
