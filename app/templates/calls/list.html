@@ -9,7 +9,12 @@
     <div class="page-actions">
         <div class="view-toggle" role="group" aria-label="View mode">
             <button type="button" class="active" data-view="list" title="List view"><i class="fas fa-list"></i></button>
-            <button type="button" data-view="board" title="Board view"><i class="fas fa-columns"></i></button>
+            <button type="button" data-view="board" title="Status board"><i class="fas fa-columns"></i></button>
+            <button type="button" data-view="workload" title="Agent workload"><i class="fas fa-users"></i></button>
+        </div>
+        <div class="density-seg" role="group" aria-label="Density">
+            <button type="button" data-density="comfortable" title="Comfortable">Cozy</button>
+            <button type="button" data-density="compact" title="Compact">Dense</button>
         </div>
         <button type="button" class="btn btn-ghost btn-sm" data-shortcuts-open title="Keyboard shortcuts">
             <i class="fas fa-keyboard"></i>
@@ -44,18 +49,21 @@
 <div class="inbox-meta">
     <span class="meta-stat"><strong>{{ pagination.total if pagination else calls|length }}</strong> total</span>
     <span class="meta-stat"><strong>{{ open_count }}</strong> open (page)</span>
-    <span class="desk-tip"><kbd>?</kbd> shortcuts · <kbd>B</kbd> board · <kbd>C</kbd> log call</span>
+    <span class="desk-tip"><kbd>?</kbd> help · <kbd>B</kbd> board · <kbd>W</kbd> workload · <kbd>D</kbd> density</span>
 </div>
 
 <div class="quick-filters">
     {% set st = request.args.get('status', '') %}
-    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st and not request.args.get('priority') %}active{% endif %}">All</a>
+    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st and not request.args.get('priority') and not request.args.get('assigned_to') %}active{% endif %}">All</a>
     {% for s in ['Open','In Progress','Pending','Resolved','Closed'] %}
     <a href="{{ url_for('calls.list_calls', status=s, search=request.args.get('search',''), priority=request.args.get('priority',''), department=request.args.get('department','')) }}"
        class="chip {% if st == s %}active{% endif %}">{{ s }}</a>
     {% endfor %}
     <a href="{{ url_for('calls.list_calls', priority='Critical') }}" class="chip {% if request.args.get('priority') == 'Critical' %}active{% endif %}">
         <span class="urgency-dot critical" style="margin-right:4px"></span> Critical
+    </a>
+    <a href="{{ url_for('calls.list_calls', assigned_to=current_user.UserID) }}" class="chip {% if request.args.get('assigned_to')|string == current_user.UserID|string %}active{% endif %}">
+        <i class="fas fa-user" style="font-size:0.65rem;margin-right:4px"></i> Assigned to me
     </a>
 </div>
 
@@ -106,6 +114,7 @@
 </div>
 
 <div class="board-wrap" id="boardWrap" aria-label="Status board"></div>
+<div class="workload-wrap" id="workloadWrap" aria-label="Agent workload"></div>
 
 <div class="inbox-list-wrap" id="inboxListWrap">
 <div class="table-wrap inbox-table">
