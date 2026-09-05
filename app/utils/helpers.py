@@ -2,15 +2,13 @@
 Helper utilities for activity logging, stats, and common operations.
 """
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, case
 from app import db
 from app.models import CallLog, CallActivity, User
 
 
 def log_activity(call_id: int, user_id: int, action: str, details: str = None) -> CallActivity:
-    """
-    Record an activity entry for a call.
-    """
+    """Record an activity entry for a call."""
     activity = CallActivity(
         CallID=call_id,
         UserID=user_id,
@@ -21,11 +19,34 @@ def log_activity(call_id: int, user_id: int, action: str, details: str = None) -
     return activity
 
 
-def get_dashboard_stats():
-    """
-    Compute key dashboard statistics.
-    Returns a dict of counts and recent data.
-    """
+def age_hours(dt):
+    """Hours since datetime (UTC)."""
+    if not dt:
+        return None
+    delta = datetime.utcnow() - dt
+    return round(delta.total_seconds() / 3600, 1)
+
+
+def sla_risk(call):
+    """Simple SLA risk: critical/high open longer than thresholds."""
+    if call.Status in ('Resolved', 'Closed'):
+        return 'ok'
+    hours = age_hours(call.DateLogged) or 0
+    if call.Priority == 'Critical' and hours >= 4:
+        return 'breach'
+    if call.Priority == 'Critical' and hours >= 2:
+        return 'warn'
+    if call.Priority == 'High' and hours >= 24:
+        return 'breach'
+    if call.Priority == 'High' and hours >= 8:
+        return 'warn'
+    if hours >= 48:
+        return 'warn'
+    return 'ok'
+
+
+def get_dashboard_stats(user=None):
+    """Compute key dashboard statistics. Optionally scope personal queue."""
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
     total_calls = CallLog.query.count()
@@ -40,15 +61,24 @@ def get_dashboard_stats():
         CallLog.Priority.in_(['High', 'Critical']),
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).count()
+    unassigned = CallLog.query.filter(
+        CallLog.AssignedTo.is_(None),
+        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+    ).count()
 
-    # Calls by status
+    my_open = 0
+    if user is not None and getattr(user, 'UserID', None):
+        my_open = CallLog.query.filter(
+            CallLog.AssignedTo == user.UserID,
+            CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        ).count()
+
     status_counts = dict(
         db.session.query(CallLog.Status, func.count(CallLog.CallID))
         .group_by(CallLog.Status)
         .all()
     )
 
-    # Calls per day (last 7 days)
     seven_days_ago = today_start - timedelta(days=6)
     daily = (
         db.session.query(
@@ -62,7 +92,6 @@ def get_dashboard_stats():
     )
     calls_per_day = {str(d): c for d, c in daily}
 
-    # Calls by department
     dept_counts = dict(
         db.session.query(CallLog.Department, func.count(CallLog.CallID))
         .filter(CallLog.Department.isnot(None))
@@ -70,11 +99,28 @@ def get_dashboard_stats():
         .all()
     )
 
-    # Recent calls
+    # Agent workload (open assigned counts)
+    workload_rows = (
+        db.session.query(User.UserID, User.FullName, func.count(CallLog.CallID))
+        .outerjoin(
+            CallLog,
+            (CallLog.AssignedTo == User.UserID) &
+            (CallLog.Status.in_(['Open', 'In Progress', 'Pending']))
+        )
+        .filter(User.IsActive == True, User.Role.in_(['Agent', 'Manager', 'Admin']))
+        .group_by(User.UserID, User.FullName)
+        .order_by(func.count(CallLog.CallID).desc())
+        .all()
+    )
+    workload = [
+        {'user_id': uid, 'name': name, 'open_count': cnt}
+        for uid, name, cnt in workload_rows
+    ]
+
     recent_calls = (
         CallLog.query
         .order_by(CallLog.DateLogged.desc())
-        .limit(5)
+        .limit(8)
         .all()
     )
 
@@ -83,8 +129,11 @@ def get_dashboard_stats():
         'open_calls': open_calls,
         'resolved_today': resolved_today,
         'high_priority': high_priority,
+        'unassigned': unassigned,
+        'my_open': my_open,
         'status_counts': status_counts,
         'calls_per_day': calls_per_day,
         'dept_counts': dept_counts,
-        'recent_calls': recent_calls
+        'workload': workload,
+        'recent_calls': recent_calls,
     }
