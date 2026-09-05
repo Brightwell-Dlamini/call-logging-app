@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}My queue{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">My queue</h1>
+    <p class="page-subtitle">{{ mine|length }} open on you · claim from unassigned pool</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('board.kanban') }}" class="btn btn-secondary btn-sm">Board</a>
+    <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Log call</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="table-wrap">
+      <div class="card-header"><span>Assigned to me</span></div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead><tr><th>ID</th><th>Caller</th><th>Priority</th><th>Status</th><th>Dept</th><th></th></tr></thead>
+          <tbody>
+            {% for c in mine %}
+            <tr class="inbox-row" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
+              <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link" onclick="event.stopPropagation()">#{{ c.CallID }}</a></td>
+              <td class="fw-medium">{{ c.CallerName }}</td>
+              <td><span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span></td>
+              <td><span class="badge status-{{ c.Status|lower|replace(' ', '-') }}">{{ c.Status }}</span></td>
+              <td>{{ c.Department or '—' }}</td>
+              <td class="table-actions">
+                <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}"><i class="fas fa-panel-right"></i></button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6"><div class="empty-state"><p>Nothing assigned. Claim from the pool →</p></div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="table-wrap">
+      <div class="card-header"><span>Unassigned pool</span><span class="text-muted small">{{ unassigned|length }}</span></div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead><tr><th>ID</th><th>Caller</th><th>Pri</th><th></th></tr></thead>
+          <tbody>
+            {% for c in unassigned %}
+            <tr>
+              <td>#{{ c.CallID }}</td>
+              <td>{{ c.CallerName }}</td>
+              <td><span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span></td>
+              <td>
+                <button type="button" class="btn btn-primary btn-sm btn-claim" data-id="{{ c.CallID }}">Claim</button>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4"><div class="empty-state"><p>Pool is empty.</p></div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function(){
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  document.querySelectorAll('.btn-claim').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const id = btn.dataset.id;
+      const res = await fetch('/board/claim/' + id, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf }
+      });
+      const data = await res.json();
+      if (data.ok) location.reload();
+      else { btn.disabled = false; alert(data.error || 'Claim failed'); }
+    });
+  });
+})();
+</script>
+{% endblock %}

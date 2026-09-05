@@ -1,0 +1,59 @@
+/* Workload board */
+.board-scroll { overflow-x: auto; padding-bottom: 1rem; margin: 0 -0.25rem; }
+.board-columns {
+  display: flex; gap: 0.75rem; min-width: max-content; padding: 0.25rem;
+}
+.board-col {
+  width: 260px; flex-shrink: 0;
+  background: var(--cl-surface, #fff);
+  border: 1px solid var(--cl-border, #e2e8f0);
+  border-radius: 12px;
+  display: flex; flex-direction: column;
+  max-height: calc(100vh - 200px);
+}
+.board-col-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--cl-border, #e2e8f0);
+}
+.board-col-title { font-weight: 600; font-size: 0.8125rem; letter-spacing: 0.02em; }
+.board-col-count {
+  font-size: 0.75rem; font-weight: 600;
+  background: var(--cl-muted-bg, #f1f5f9);
+  color: var(--cl-muted, #64748b);
+  padding: 0.15rem 0.45rem; border-radius: 999px;
+}
+.board-col-body {
+  padding: 0.6rem; overflow-y: auto; flex: 1; min-height: 120px;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.board-col-body.drop-hover {
+  outline: 2px dashed var(--cl-accent, #6366f1);
+  outline-offset: -4px;
+  background: color-mix(in srgb, var(--cl-accent, #6366f1) 6%, transparent);
+}
+.board-card {
+  background: var(--cl-bg, #f8fafc);
+  border: 1px solid var(--cl-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 0.7rem 0.75rem;
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.board-card:hover { box-shadow: 0 4px 12px rgba(15,23,42,0.08); }
+.board-card.dragging { opacity: 0.55; cursor: grabbing; }
+.board-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; }
+.board-card-name { font-weight: 600; font-size: 0.875rem; color: var(--cl-text, #0f172a); }
+.board-card-meta { font-size: 0.75rem; color: var(--cl-muted, #64748b); margin-top: 0.15rem; }
+.board-card-reason { font-size: 0.75rem; color: var(--cl-muted, #64748b); margin-top: 0.4rem; line-height: 1.35; }
+.board-card-foot { margin-top: 0.5rem; font-size: 0.7rem; color: var(--cl-muted, #64748b); }
+.board-empty { font-size: 0.8rem; color: var(--cl-muted, #94a3b8); text-align: center; padding: 1.5rem 0.5rem; }
+.load-bar {
+  height: 8px; background: var(--cl-muted-bg, #f1f5f9); border-radius: 999px; overflow: hidden;
+}
+.load-bar span {
+  display: block; height: 100%; background: var(--cl-accent, #6366f1); border-radius: 999px;
+  min-width: 2px;
+}
+.theme-dark .board-col,
+.theme-dark .board-card { background: var(--cl-surface); }

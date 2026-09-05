@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Board{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Board</h1>
+    <p class="page-subtitle">Drag status pipeline · priority-sorted columns</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('board.my_queue') }}" class="btn btn-secondary btn-sm">My queue</a>
+    <a href="{{ url_for('board.workload') }}" class="btn btn-secondary btn-sm">Workload</a>
+    <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Log call</a>
+  </div>
+</div>
+
+<div class="board-scroll">
+  <div class="board-columns" id="boardColumns">
+    {% for status, cards in columns.items() %}
+    <div class="board-col" data-status="{{ status }}">
+      <div class="board-col-head">
+        <span class="board-col-title">{{ status }}</span>
+        <span class="board-col-count">{{ cards|length }}</span>
+      </div>
+      <div class="board-col-body" data-drop-status="{{ status }}">
+        {% for c in cards %}
+        <article class="board-card" draggable="true" data-call-id="{{ c.CallID }}"
+                 data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
+          <div class="board-card-top">
+            <a class="call-id-link" href="{{ url_for('calls.detail', call_id=c.CallID) }}" onclick="event.stopPropagation()">#{{ c.CallID }}</a>
+            <span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span>
+          </div>
+          <div class="board-card-name">{{ c.CallerName }}</div>
+          <div class="board-card-meta">{{ c.Department or '—' }} · {{ c.PhoneNumber }}</div>
+          <div class="board-card-reason">{{ (c.ReasonForCall or '')[:90] }}{% if c.ReasonForCall and c.ReasonForCall|length > 90 %}…{% endif %}</div>
+          <div class="board-card-foot">
+            <span class="board-assignee">{{ c.assignee.FullName if c.assignee else 'Unassigned' }}</span>
+            {% set hrs = ((now() - c.DateLogged).total_seconds() / 3600) if c.DateLogged else 0 %}
+          </div>
+        </article>
+        {% else %}
+        <div class="board-empty">Empty</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  let dragId = null;
+
+  document.querySelectorAll('.board-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragId = card.dataset.callId;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  });
+
+  document.querySelectorAll('[data-drop-status]').forEach(col => {
+    col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drop-hover'); });
+    col.addEventListener('dragleave', () => col.classList.remove('drop-hover'));
+    col.addEventListener('drop', async e => {
+      e.preventDefault();
+      col.classList.remove('drop-hover');
+      if (!dragId) return;
+      const status = col.dataset.dropStatus;
+      try {
+        const res = await fetch('/board/move', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrf
+          },
+          body: JSON.stringify({ call_id: parseInt(dragId, 10), status })
+        });
+        const data = await res.json();
+        if (data.ok) location.reload();
+        else alert(data.error || 'Move failed');
+      } catch (err) {
+        alert('Network error');
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

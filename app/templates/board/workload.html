@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Workload{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Workload</h1>
+    <p class="page-subtitle">Open tickets per agent · {{ unassigned }} unassigned</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('board.kanban') }}" class="btn btn-secondary btn-sm">Board</a>
+    <a href="{{ url_for('board.my_queue') }}" class="btn btn-secondary btn-sm">My queue</a>
+  </div>
+</div>
+
+<div class="stat-grid mb-4">
+  <div class="stat-card">
+    <div class="stat-icon amber"><i class="fas fa-user-slash"></i></div>
+    <div>
+      <div class="stat-label">Unassigned open</div>
+      <div class="stat-value">{{ unassigned }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div class="card-header"><span>Agents</span></div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr><th>Agent</th><th>Open queue</th><th>Load</th></tr>
+      </thead>
+      <tbody>
+        {% set max_c = workload|map(attribute='open_count')|max if workload else 1 %}
+        {% for w in workload %}
+        <tr>
+          <td class="fw-medium">{{ w.name }}</td>
+          <td>{{ w.open_count }}</td>
+          <td style="min-width:160px">
+            <div class="load-bar"><span style="width: {{ (w.open_count / (max_c or 1) * 100)|int }}%"></span></div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No agents yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
