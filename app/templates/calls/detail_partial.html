@@ -32,7 +32,9 @@
                 <div class="c360-phone">{{ call.PhoneNumber }} <button type="button" class="copy-btn" data-copy="{{ call.PhoneNumber }}" title="Copy"><i class="fas fa-copy"></i></button></div>
             </div>
         </div>
-        <div style="font-size:0.75rem;color:var(--cl-text-muted);">Customer 360 · history by number available now</div>
+        <div style="font-size:0.75rem;color:var(--cl-text-muted);">
+            {% if related_count %}{{ related_count }} other call{{ 's' if related_count != 1 else '' }} from this number{% else %}First call from this number{% endif %}
+        </div>
         <div class="c360-actions">
             <a class="btn btn-secondary btn-sm" href="{{ url_for('calls.list_calls', search=call.PhoneNumber) }}">
                 <i class="fas fa-clock-rotate-left"></i> History by number
@@ -62,6 +64,7 @@
         <div class="cl-card-header">Update status</div>
         <div class="cl-card-body">
             <form method="POST" action="{{ url_for('calls.update_call', call_id=call.CallID) }}">
+                <input type="hidden" name="return_to" value="list">
                 {{ update_form.hidden_tag() }}
                 <div class="mb-3">{{ update_form.status.label(class="form-label") }}{{ update_form.status(class="form-select") }}</div>
                 <div class="mb-3">{{ update_form.resolution.label(class="form-label") }}{{ update_form.resolution(class="form-control", rows=2) }}</div>

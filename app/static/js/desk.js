@@ -54,9 +54,28 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   document.querySelectorAll('[data-bulk-action]').forEach(function (btn) {
     btn.addEventListener('click', function () {
+      var action = btn.getAttribute('data-bulk-action');
       var ids = selectedIds();
       if (!ids.length) return;
-      if (window.clToast) window.clToast('info', ids.length + ' selected — bulk API ships in backend phase.');
+      var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+      fetch('/calls/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': token,
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ ids: ids, action: action })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.ok) {
+          if (window.clToast) window.clToast('success', j.message);
+          setTimeout(function () { location.reload(); }, 500);
+        } else if (window.clToast) {
+          window.clToast('error', j.error || 'Failed');
+        }
+      }).catch(function () {
+        if (window.clToast) window.clToast('error', 'Network error');
+      });
     });
   });
 
