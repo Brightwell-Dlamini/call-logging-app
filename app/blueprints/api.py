@@ -1,14 +1,14 @@
 """
 REST API endpoints (session-authenticated).
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from app import db
-from app.models import CallLog, User
+from app.models import CallLog, User, CallActivity
 from app.utils.decorators import login_required_active, agent_required
-from app.utils.helpers import get_dashboard_stats, log_activity
+from app.utils.helpers import get_dashboard_stats, log_activity, get_recent_activity, sla_risk
 
 api_bp = Blueprint('api', __name__)
 
@@ -18,7 +18,6 @@ api_bp = Blueprint('api', __name__)
 @login_required_active
 def dashboard_stats():
     stats = get_dashboard_stats(user=current_user)
-    # JSON-safe subset
     return jsonify({
         'total_calls': stats['total_calls'],
         'open_calls': stats['open_calls'],
@@ -28,6 +27,7 @@ def dashboard_stats():
         'my_open': stats['my_open'],
         'sla_breach': stats['sla_breach'],
         'sla_warn': stats['sla_warn'],
+        'avg_satisfaction': stats.get('avg_satisfaction'),
         'status_counts': stats['status_counts'],
         'calls_per_day': stats['calls_per_day'],
         'dept_counts': stats['dept_counts'],
@@ -35,11 +35,28 @@ def dashboard_stats():
     })
 
 
+@api_bp.route('/notifications')
+@login_required
+@login_required_active
+def notifications():
+    """Recent activity for the notification bell."""
+    items = get_recent_activity(15)
+    out = []
+    for a in items:
+        out.append({
+            'id': a['id'],
+            'title': f"{a['user']} · {a['action']}",
+            'body': f"#{a['call_id']} {a['caller']}".strip(),
+            'url': f"/calls/{a['call_id']}",
+            'when': a['when'].isoformat() if a['when'] else None,
+        })
+    return jsonify({'items': out, 'count': len(out)})
+
+
 @api_bp.route('/search')
 @login_required
 @login_required_active
 def global_search():
-    """Command-palette / typeahead search across calls and agents."""
     q = (request.args.get('q') or '').strip()
     if len(q) < 1:
         return jsonify(calls=[], users=[])
@@ -100,6 +117,7 @@ def list_calls_api():
             'priority': c.Priority,
             'department': c.Department,
             'assigned_to': c.AssignedTo,
+            'sla': sla_risk(c),
         }
         for c in calls
     ])
@@ -150,6 +168,7 @@ def get_call_api(call_id):
         'assigned_to': c.AssignedTo,
         'assignee': c.assignee.FullName if c.assignee else None,
         'date_logged': c.DateLogged.isoformat() if c.DateLogged else None,
+        'sla': sla_risk(c),
     })
 
 
@@ -173,6 +192,36 @@ def update_call_api(call_id):
     c.LastUpdated = datetime.utcnow()
     db.session.commit()
     return jsonify(ok=True)
+
+
+@api_bp.route('/calls/<int:call_id>/quick', methods=['POST'])
+@login_required
+@login_required_active
+@agent_required
+def quick_action(call_id):
+    """claim | resolve | escalate from drawer."""
+    c = CallLog.query.get_or_404(call_id)
+    data = request.get_json(silent=True) or {}
+    action = (data.get('action') or '').lower()
+    if action == 'claim':
+        c.AssignedTo = current_user.UserID
+        if c.Status == 'Open':
+            c.Status = 'In Progress'
+        log_activity(c.CallID, current_user.UserID, 'Claimed', f'Claimed by {current_user.FullName}')
+    elif action == 'resolve':
+        old = c.Status
+        c.Status = 'Resolved'
+        if not c.Resolution:
+            c.Resolution = data.get('resolution') or f'Resolved by {current_user.FullName}'
+        log_activity(c.CallID, current_user.UserID, 'Updated', f'Status {old} → Resolved (quick)')
+    elif action == 'escalate':
+        c.Priority = 'Critical'
+        log_activity(c.CallID, current_user.UserID, 'Escalated', 'Priority set to Critical')
+    else:
+        return jsonify(ok=False, error='Unknown action'), 400
+    c.LastUpdated = datetime.utcnow()
+    db.session.commit()
+    return jsonify(ok=True, status=c.Status, priority=c.Priority)
 
 
 @api_bp.route('/users')
@@ -199,7 +248,6 @@ def daily_report_api():
 @login_required
 @login_required_active
 def phone_lookup():
-    """Duplicate / history check when logging a call."""
     phone = (request.args.get('phone') or '').strip()
     if len(phone) < 5:
         return jsonify(matches=[])

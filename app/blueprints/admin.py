@@ -1,7 +1,11 @@
 """
 Admin blueprint: user management, departments, system audit.
 """
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from io import StringIO
+import csv
+from flask import (
+    Blueprint, render_template, redirect, url_for, flash, request, abort, Response
+)
 from flask_login import login_required, current_user
 from app import db
 from app.models import User, Department, CallActivity
@@ -181,4 +185,29 @@ def activities():
         activities=pagination.items,
         pagination=pagination,
         title='Audit Log'
+    )
+
+
+@admin_bp.route('/activities/export')
+@login_required
+@admin_required
+def activities_export():
+    """CSV export of recent audit events."""
+    rows = CallActivity.query.order_by(CallActivity.ActivityDate.desc()).limit(5000).all()
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ActivityID', 'CallID', 'User', 'Action', 'Details', 'ActivityDate'])
+    for a in rows:
+        writer.writerow([
+            a.ActivityID,
+            a.CallID,
+            a.user.FullName if a.user else '',
+            a.Action,
+            a.Details or '',
+            a.ActivityDate.isoformat() if a.ActivityDate else '',
+        ])
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=audit_log.csv'}
     )
