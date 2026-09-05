@@ -12,6 +12,7 @@
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/shell.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/features.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/login-toast.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -110,12 +111,11 @@
 {% endif %}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
+                <div id="flashToasts" hidden>
                     {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
+                    <div data-toast-cat="{{ category }}" data-toast-msg="{{ message|e }}"></div>
                     {% endfor %}
+                </div>
                 {% endif %}
             {% endwith %}
             {% block content %}{% endblock %}
@@ -142,6 +142,7 @@
   </div>
 </div>
 {% endif %}
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
