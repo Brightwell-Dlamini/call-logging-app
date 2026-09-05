@@ -1,0 +1,15 @@
+/* Wave 3 */
+.health-badge {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #94a3b8; display: inline-block;
+  margin-right: 0.35rem; vertical-align: middle;
+}
+.health-badge.ok { background: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,0.2); }
+.health-badge.bad { background: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.2); }
+.copy-btn {
+  border: none; background: transparent; color: var(--cl-muted, #94a3b8);
+  cursor: pointer; padding: 0 0.25rem; font-size: 0.75rem;
+}
+.copy-btn:hover { color: var(--cl-accent, #6366f1); }
+.page-actions .quick-actions { display: inline-flex; gap: 0.35rem; margin-right: 0.35rem; }
+.sidebar-brand .health-badge { margin-left: 0.25rem; }

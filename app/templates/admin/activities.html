@@ -6,6 +6,11 @@
         <h1 class="page-title">Audit log</h1>
         <p class="page-subtitle">System activity and changes</p>
     </div>
+    <div class="page-actions">
+        <a href="{{ url_for('admin.activities_export') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-download"></i> Export CSV
+        </a>
+    </div>
 </div>
 <div class="table-wrap">
     <div class="table-responsive">

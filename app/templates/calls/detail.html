@@ -3,16 +3,26 @@
 {% block content %}
 <div class="page-header">
     <div>
-        <h1 class="page-title">Call #{{ call.CallID }}</h1>
+        <h1 class="page-title">Call #{{ call.CallID }}
+            <button type="button" class="star-btn" data-star-id="{{ call.CallID }}" title="Star"><i class="far fa-star"></i></button>
+        </h1>
         <p class="page-subtitle">
             <span class="badge status-{{ call.Status|lower|replace(' ', '-') }}">{{ call.Status }}</span>
             <span class="badge badge-{{ call.Priority|lower }} ms-1">{{ call.Priority }}</span>
+            <span class="sla-chip {{ call|sla_badge }} ms-1">{{ call|sla_badge }}</span>
+            {% if related_count %}<span class="text-muted ms-2" style="font-size:0.8rem;">{{ related_count }} related by phone</span>{% endif %}
         </p>
     </div>
     <div class="page-actions">
+        <div class="quick-actions">
+            <button type="button" class="btn btn-secondary btn-sm" data-quick="claim" data-call-id="{{ call.CallID }}"><i class="fas fa-hand"></i> Claim</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-quick="resolve" data-call-id="{{ call.CallID }}"><i class="fas fa-check"></i> Resolve</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-quick="escalate" data-call-id="{{ call.CallID }}"><i class="fas fa-bolt"></i> Escalate</button>
+        </div>
         <a href="{{ url_for('calls.list_calls') }}" class="btn btn-secondary btn-sm">
             <i class="fas fa-arrow-left"></i> Back
         </a>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()"><i class="fas fa-print"></i></button>
     </div>
 </div>
 
@@ -23,7 +33,9 @@
             <div class="cl-card-body">
                 <ul class="meta-list">
                     <li><span class="meta-label">Caller</span><span class="meta-value">{{ call.CallerName }}</span></li>
-                    <li><span class="meta-label">Phone</span><span class="meta-value">{{ call.PhoneNumber }}</span></li>
+                    <li><span class="meta-label">Phone</span><span class="meta-value">{{ call.PhoneNumber }}
+                        <button type="button" class="copy-btn" data-copy="{{ call.PhoneNumber }}" title="Copy"><i class="fas fa-copy"></i></button>
+                    </span></li>
                     <li><span class="meta-label">Department</span><span class="meta-value">{{ call.Department or '—' }}</span></li>
                     <li><span class="meta-label">Type</span><span class="meta-value">{{ call.CallType }}</span></li>
                     <li><span class="meta-label">Assigned to</span><span class="meta-value">{{ call.assignee.FullName if call.assignee else 'Unassigned' }}</span></li>
@@ -52,6 +64,14 @@
                     <p class="mb-0" style="color:var(--cl-text-secondary);font-size:0.875rem;">{{ call.Resolution }}</p>
                 </div>
                 {% endif %}
+                <div class="c360-actions mt-3">
+                    <a class="btn btn-secondary btn-sm" href="{{ url_for('calls.list_calls', search=call.PhoneNumber) }}">
+                        <i class="fas fa-clock-rotate-left"></i> History by number
+                    </a>
+                    <a class="btn btn-ghost btn-sm" href="tel:{{ call.PhoneNumber }}">
+                        <i class="fas fa-phone"></i> Call back
+                    </a>
+                </div>
             </div>
         </div>
 
