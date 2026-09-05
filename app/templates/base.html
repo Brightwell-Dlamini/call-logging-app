@@ -24,6 +24,7 @@
     <link href="{{ url_for('static', filename='css/board.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/upgrades.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave2.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/wave3.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -48,6 +49,7 @@
             <a href="{{ url_for('dashboard.index') }}" class="brand">
                 <span class="brand-mark"><i class="fas fa-phone-volume"></i></span>
                 <span class="brand-text">CallLog Pro</span>
+                <span class="health-badge" id="healthBadge" title="Checking system…"></span>
             </a>
         </div>
         <nav class="sidebar-nav">
@@ -215,6 +217,7 @@
     <script src="{{ url_for('static', filename='js/pro4.js') }}"></script>
     <script src="{{ url_for('static', filename='js/upgrades.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave2.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/wave3.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
