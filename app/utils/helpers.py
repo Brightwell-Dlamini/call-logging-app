@@ -2,7 +2,7 @@
 Helper utilities for activity logging, stats, and common operations.
 """
 from datetime import datetime, timedelta
-from sqlalchemy import func, case
+from sqlalchemy import func
 from app import db
 from app.models import CallLog, CallActivity, User
 
@@ -45,6 +45,28 @@ def sla_risk(call):
     return 'ok'
 
 
+def get_recent_activity(limit=12):
+    """Latest audit events with user + call context."""
+    rows = (
+        CallActivity.query
+        .order_by(CallActivity.ActivityDate.desc())
+        .limit(limit)
+        .all()
+    )
+    out = []
+    for a in rows:
+        out.append({
+            'id': a.ActivityID,
+            'action': a.Action,
+            'details': a.Details or '',
+            'when': a.ActivityDate,
+            'user': a.user.FullName if a.user else '—',
+            'call_id': a.CallID,
+            'caller': a.call.CallerName if a.call else '',
+        })
+    return out
+
+
 def get_dashboard_stats(user=None):
     """Compute key dashboard statistics. Optionally scope personal queue."""
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -65,6 +87,13 @@ def get_dashboard_stats(user=None):
         CallLog.AssignedTo.is_(None),
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).count()
+
+    # SLA posture on open queue
+    open_q = CallLog.query.filter(
+        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+    ).all()
+    sla_breach = sum(1 for c in open_q if sla_risk(c) == 'breach')
+    sla_warn = sum(1 for c in open_q if sla_risk(c) == 'warn')
 
     my_open = 0
     if user is not None and getattr(user, 'UserID', None):
@@ -99,7 +128,6 @@ def get_dashboard_stats(user=None):
         .all()
     )
 
-    # Agent workload (open assigned counts)
     workload_rows = (
         db.session.query(User.UserID, User.FullName, func.count(CallLog.CallID))
         .outerjoin(
@@ -131,9 +159,12 @@ def get_dashboard_stats(user=None):
         'high_priority': high_priority,
         'unassigned': unassigned,
         'my_open': my_open,
+        'sla_breach': sla_breach,
+        'sla_warn': sla_warn,
         'status_counts': status_counts,
         'calls_per_day': calls_per_day,
         'dept_counts': dept_counts,
         'workload': workload,
         'recent_calls': recent_calls,
+        'recent_activity': get_recent_activity(10),
     }
