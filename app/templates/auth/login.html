@@ -1,32 +1,46 @@
 {% extends "base.html" %}
 {% block title %}Sign in{% endblock %}
 {% block content %}
-<div class="auth-layout">
-    <div class="auth-card">
-        <div class="auth-brand">
-            <span class="brand-mark"><i class="fas fa-phone-volume"></i></span>
-            <h1>Welcome back</h1>
-            <p>Sign in to CallLog Pro</p>
+<div class="auth-split">
+    <div class="auth-visual">
+        <div class="auth-visual-inner">
+            <div class="auth-logo">
+                <span class="brand-mark"><i class="fas fa-phone-volume"></i></span>
+                CallLog Pro
+            </div>
+            <h2 class="auth-visual-title">Every call,<br>accounted for.</h2>
+            <p class="auth-visual-copy">Log, triage, and resolve customer conversations in one calm workspace built for support teams.</p>
+            <ul class="auth-bullets">
+                <li><i class="fas fa-check"></i> Role-based access for agents &amp; managers</li>
+                <li><i class="fas fa-check"></i> Priority inbox with live activity</li>
+                <li><i class="fas fa-check"></i> Reports you can act on</li>
+            </ul>
         </div>
-        <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
-            {{ form.hidden_tag() }}
-            <div class="mb-3">
-                {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Username", autocomplete="username") }}
-                {% for e in form.username.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-            </div>
-            <div class="mb-3">
-                {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Password", autocomplete="current-password") }}
-                {% for e in form.password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-            </div>
-            <div class="mb-4 form-check">
-                {{ form.remember_me(class="form-check-input") }}
-                {{ form.remember_me.label(class="form-check-label") }}
-            </div>
-            {{ form.submit(class="btn btn-primary btn-lg") }}
-        </form>
-        <p class="auth-hint">admin · admin123</p>
+    </div>
+    <div class="auth-form-side">
+        <div class="auth-form-card">
+            <h1>Sign in</h1>
+            <p class="auth-form-sub">Welcome back. Enter your credentials to continue.</p>
+            <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.username.label(class="form-label") }}
+                    {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Username", autocomplete="username", autofocus=true) }}
+                    {% for e in form.username.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.password.label(class="form-label") }}
+                    {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Password", autocomplete="current-password") }}
+                    {% for e in form.password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="mb-4 form-check">
+                    {{ form.remember_me(class="form-check-input") }}
+                    {{ form.remember_me.label(class="form-check-label") }}
+                </div>
+                {{ form.submit(class="btn btn-primary w-100") }}
+            </form>
+            <p class="auth-hint">Demo · <code>admin</code> / <code>admin123</code></p>
+        </div>
     </div>
 </div>
 {% endblock %}
