@@ -20,7 +20,6 @@ calls_bp = Blueprint('calls', __name__, url_prefix='/calls')
 
 
 def _populate_agent_choices(form):
-    """Populate Assign To dropdown with active agents/managers."""
     agents = User.query.filter(
         User.IsActive == True,
         User.Role.in_(['Agent', 'Manager', 'Admin'])
@@ -31,7 +30,6 @@ def _populate_agent_choices(form):
 
 
 def _populate_department_choices(form):
-    """Populate department dropdown."""
     depts = Department.query.filter_by(IsActive=True).order_by(Department.DepartmentName).all()
     form.department.choices = [('', '— Select —')] + [
         (d.DepartmentName, d.DepartmentName) for d in depts
@@ -42,7 +40,6 @@ def _populate_department_choices(form):
 @login_required
 @login_required_active
 def list_calls():
-    """Paginated, filterable, searchable call list."""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
     if per_page not in (10, 25, 50):
@@ -89,7 +86,7 @@ def list_calls():
             pass
     if date_to:
         try:
-            query = query.filter(CallLog.DateLogged <= datetime.strptime(date_to, '%Y-%m-%d') + 
+            query = query.filter(CallLog.DateLogged <= datetime.strptime(date_to, '%Y-%m-%d') +
                                  __import__('datetime').timedelta(days=1))
         except ValueError:
             pass
@@ -128,7 +125,6 @@ def list_calls():
 @login_required_active
 @agent_required
 def new_call():
-    """Create a new call log entry."""
     form = CallLogForm()
     _populate_department_choices(form)
     _populate_agent_choices(form)
@@ -174,7 +170,6 @@ def new_call():
 @login_required
 @login_required_active
 def detail(call_id):
-    """Call detail view with activity log and update forms."""
     call = CallLog.query.get_or_404(call_id)
     update_form = CallUpdateForm(obj=call)
     if call.SatisfactionRating:
@@ -187,8 +182,7 @@ def detail(call_id):
 
     activities = call.activities.order_by(CallActivity.ActivityDate.desc()).all()
 
-    return render_template(
-        'calls/detail.html',
+    ctx = dict(
         call=call,
         update_form=update_form,
         note_form=note_form,
@@ -196,6 +190,9 @@ def detail(call_id):
         activities=activities,
         title=f'Call #{call.CallID}'
     )
+    if request.args.get('partial') == '1' or request.headers.get('X-Partial') == '1':
+        return render_template('calls/detail_partial.html', **ctx)
+    return render_template('calls/detail.html', **ctx)
 
 
 @calls_bp.route('/<int:call_id>/update', methods=['POST'])
@@ -203,7 +200,6 @@ def detail(call_id):
 @login_required_active
 @agent_required
 def update_call(call_id):
-    """Update status, resolution, time spent, rating."""
     call = CallLog.query.get_or_404(call_id)
     form = CallUpdateForm()
     if form.validate_on_submit():
@@ -233,7 +229,6 @@ def update_call(call_id):
 @login_required_active
 @agent_required
 def add_note(call_id):
-    """Append a note to the call."""
     call = CallLog.query.get_or_404(call_id)
     form = NoteForm()
     if form.validate_on_submit():
@@ -256,7 +251,6 @@ def add_note(call_id):
 @login_required_active
 @agent_required
 def assign_call(call_id):
-    """Assign or reassign a call."""
     call = CallLog.query.get_or_404(call_id)
     form = AssignForm()
     _populate_agent_choices(form)
@@ -284,7 +278,6 @@ def assign_call(call_id):
 @login_required
 @login_required_active
 def export_csv():
-    """Export filtered calls to CSV."""
     query = CallLog.query.order_by(CallLog.DateLogged.desc())
     status = request.args.get('status')
     if status:
@@ -316,7 +309,6 @@ def export_csv():
 @login_required
 @admin_required
 def delete_call(call_id):
-    """Admin-only call deletion."""
     call = CallLog.query.get_or_404(call_id)
     log_activity(call.CallID, current_user.UserID, 'Deleted', f'Call deleted by {current_user.FullName}')
     db.session.delete(call)
