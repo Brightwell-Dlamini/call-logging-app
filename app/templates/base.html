@@ -16,6 +16,7 @@
     <link href="{{ url_for('static', filename='css/worldclass.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/pro2.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/pro3.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/pro4.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -159,6 +160,8 @@
       <div class="shortcut-row"><span>Toggle board view</span><span class="keys"><kbd>B</kbd></span></div>
       <div class="shortcut-row"><span>Agent workload</span><span class="keys"><kbd>W</kbd></span></div>
       <div class="shortcut-row"><span>Toggle density</span><span class="keys"><kbd>D</kbd></span></div>
+      <div class="shortcut-row"><span>Next / previous row</span><span class="keys"><kbd>J</kbd><kbd>K</kbd></span></div>
+      <div class="shortcut-row"><span>Open focused row</span><span class="keys"><kbd>Enter</kbd></span></div>
       <div class="shortcut-row"><span>Focus inbox search</span><span class="keys"><kbd>/</kbd></span></div>
       <div class="shortcut-row"><span>Toggle theme</span><span class="keys"><kbd>T</kbd></span></div>
       <div class="shortcut-row"><span>Keyboard help</span><span class="keys"><kbd>?</kbd></span></div>
@@ -177,6 +180,7 @@
     <script src="{{ url_for('static', filename='js/desk.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pro2.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pro3.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pro4.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
