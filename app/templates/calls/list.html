@@ -71,7 +71,7 @@
 
 <div class="filter-bar">
     <form method="GET" class="row align-items-end g-2">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label class="form-label">Search</label>
             <input type="text" name="search" value="{{ request.args.get('search', '') }}" class="form-control" placeholder="ID, name, phone…" id="inboxSearch">
         </div>
@@ -95,7 +95,15 @@
         </div>
         <input type="hidden" name="status" value="{{ request.args.get('status', '') }}">
         <div class="col-md-2">
-            <label class="form-label">Per page</label>
+            <label class="form-label">Sort</label>
+            <select name="sort" class="form-select">
+                <option value="date_desc" {% if request.args.get('sort', 'date_desc') == 'date_desc' %}selected{% endif %}>Newest</option>
+                <option value="priority" {% if request.args.get('sort') == 'priority' %}selected{% endif %}>Priority</option>
+                <option value="status" {% if request.args.get('sort') == 'status' %}selected{% endif %}>Status</option>
+            </select>
+        </div>
+        <div class="col-md-1">
+            <label class="form-label">Page</label>
             <select name="per_page" class="form-select">
                 {% for n in [10,25,50] %}
                 <option value="{{ n }}" {% if request.args.get('per_page', '25')|int == n %}selected{% endif %}>{{ n }}</option>
