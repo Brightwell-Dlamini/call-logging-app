@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Server Error{% endblock %}
+{% block title %}Server error{% endblock %}
 {% block content %}
-<div class="text-center py-5">
-    <h1 class="display-1">500</h1>
-    <p class="lead">An unexpected error occurred. Please try again later.</p>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Go to Dashboard</a>
+<div class="auth-layout" style="min-height:60vh;">
+    <div style="text-align:center;max-width:400px;">
+        <div style="font-size:4rem;font-weight:600;letter-spacing:-0.04em;color:var(--cl-text);line-height:1;">500</div>
+        <p class="page-subtitle" style="margin:12px 0 24px;font-size:1rem;">An unexpected error occurred. Please try again later.</p>
+        <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Back to dashboard</a>
+    </div>
 </div>
 {% endblock %}
