@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="system">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +11,22 @@
     <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/shell.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/features.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
+    <script>
+    (function(){
+      try {
+        var m = localStorage.getItem('cl-theme') || 'system';
+        document.documentElement.setAttribute('data-theme', m);
+        if (m === 'system') {
+          var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.classList.toggle('theme-dark', dark);
+        } else {
+          document.documentElement.classList.toggle('theme-dark', m === 'dark');
+        }
+      } catch(e){}
+    })();
+    </script>
 </head>
 <body class="{% if current_user.is_authenticated %}has-sidebar{% else %}is-auth{% endif %}">
 {% if current_user.is_authenticated %}
@@ -52,6 +67,10 @@
                 <i class="fas fa-clock-rotate-left"></i><span>Audit log</span>
             </a>
             {% endif %}
+            <div class="nav-section-label">Account</div>
+            <a href="{{ url_for('auth.settings') }}" class="nav-item {% if request.endpoint == 'auth.settings' %}active{% endif %}">
+                <i class="fas fa-gear"></i><span>Settings</span>
+            </a>
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-user">
@@ -73,6 +92,14 @@
                 <i class="fas fa-bars"></i>
             </button>
             <div class="topbar-spacer"></div>
+            <button type="button" class="btn btn-secondary btn-sm" data-cmd-open title="Command palette (⌘K)">
+                <i class="fas fa-magnifying-glass"></i>
+                <span class="d-none d-md-inline">Search</span>
+                <kbd class="cmd-hint d-none d-lg-inline">⌘K</kbd>
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm btn-icon" data-theme-cycle title="Toggle theme">
+                <i class="fas fa-moon"></i>
+            </button>
             <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus"></i> Log call
             </a>
@@ -98,6 +125,23 @@
 </div>
 {% endif %}
 
+{% if current_user.is_authenticated %}
+<div class="cmd-overlay" id="cmdOverlay" hidden>
+  <div class="cmd-palette" role="dialog" aria-label="Command palette">
+    <div class="cmd-input-wrap">
+      <i class="fas fa-magnifying-glass"></i>
+      <input type="text" id="cmdInput" placeholder="Jump to…" autocomplete="off" spellcheck="false">
+      <kbd>esc</kbd>
+    </div>
+    <ul class="cmd-list" id="cmdList"></ul>
+  </div>
+</div>
+<div class="drawer-overlay" id="drawerOverlay" hidden>
+  <div class="drawer-panel" id="drawerPanel" role="dialog" aria-label="Call detail">
+    <div id="drawerContent" class="drawer-loading">Loading…</div>
+  </div>
+</div>
+{% endif %}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
