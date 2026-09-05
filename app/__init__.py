@@ -67,7 +67,28 @@ def create_app(config_name=None):
 
     @app.route('/health')
     def health():
-        return {'status': 'healthy', 'service': 'call-logging-app'}, 200
+        db_status = 'unknown'
+        backend = 'unknown'
+        try:
+            uri = app.config.get('SQLALCHEMY_DATABASE_URI') or ''
+            if uri.startswith('sqlite'):
+                backend = 'sqlite'
+            elif 'postgres' in uri:
+                backend = 'postgres'
+            else:
+                backend = 'other'
+            from sqlalchemy import text as sa_text
+            db.session.execute(sa_text('SELECT 1'))
+            db_status = 'ok'
+        except Exception as e:
+            db_status = f'error: {type(e).__name__}'
+        code = 200 if db_status == 'ok' else 503
+        return {
+            'status': 'healthy' if db_status == 'ok' else 'degraded',
+            'service': 'call-logging-app',
+            'database': db_status,
+            'backend': backend,
+        }, code
 
     if not app.debug and not app.testing:
         if not (os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV')):
