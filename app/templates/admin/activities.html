@@ -1,32 +1,47 @@
 {% extends "base.html" %}
-{% block title %}Audit Log{% endblock %}
+{% block title %}Audit log{% endblock %}
 {% block content %}
-<h2 class="mb-3">System Audit Log</h2>
-<div class="card">
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Audit log</h1>
+        <p class="page-subtitle">System activity and changes</p>
+    </div>
+</div>
+<div class="table-wrap">
     <div class="table-responsive">
-        <table class="table table-sm table-striped mb-0">
-            <thead><tr><th>ID</th><th>Date</th><th>User</th><th>Call</th><th>Action</th><th>Details</th></tr></thead>
+        <table class="table">
+            <thead>
+                <tr><th>ID</th><th>Date</th><th>User</th><th>Call</th><th>Action</th><th>Details</th></tr>
+            </thead>
             <tbody>
                 {% for a in activities %}
                 <tr>
                     <td>{{ a.ActivityID }}</td>
-                    <td>{{ a.ActivityDate.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ a.ActivityDate.strftime('%b %d, %Y · %H:%M') if a.ActivityDate else '' }}</td>
                     <td>{{ a.user.Username if a.user else '—' }}</td>
-                    <td><a href="{{ url_for('calls.detail', call_id=a.CallID) }}">#{{ a.CallID }}</a></td>
-                    <td>{{ a.Action }}</td>
-                    <td class="small">{{ a.Details or '' }}</td>
+                    <td>{% if a.CallID %}<a href="{{ url_for('calls.detail', call_id=a.CallID) }}">#{{ a.CallID }}</a>{% else %}—{% endif %}</td>
+                    <td class="fw-medium" style="color:var(--cl-text)">{{ a.Action }}</td>
+                    <td class="text-muted" style="font-size:0.8125rem;">{{ a.Details or '' }}</td>
                 </tr>
+                {% else %}
+                <tr><td colspan="6"><div class="empty-state"><p>No activity recorded.</p></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% if pagination.pages > 1 %}
-    <div class="card-footer">
-        <nav><ul class="pagination pagination-sm mb-0 justify-content-center">
-            {% if pagination.has_prev %}<li class="page-item"><a class="page-link" href="{{ url_for('admin.activities', page=pagination.prev_num) }}">Prev</a></li>{% endif %}
-            <li class="page-item disabled"><span class="page-link">Page {{ pagination.page }} of {{ pagination.pages }}</span></li>
-            {% if pagination.has_next %}<li class="page-item"><a class="page-link" href="{{ url_for('admin.activities', page=pagination.next_num) }}">Next</a></li>{% endif %}
-        </ul></nav>
+    <div class="card-footer d-flex justify-content-center">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.activities', page=pagination.prev_num) }}">Prev</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">{{ pagination.page }} / {{ pagination.pages }}</span></li>
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin.activities', page=pagination.next_num) }}">Next</a>
+                </li>
+            </ul>
+        </nav>
     </div>
     {% endif %}
 </div>

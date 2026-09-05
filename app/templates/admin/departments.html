@@ -1,19 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Departments{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between mb-3">
-    <h2>Departments</h2>
-    <a href="{{ url_for('admin.new_department') }}" class="btn btn-primary btn-sm">Add Department</a>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Departments</h1>
+        <p class="page-subtitle">Organize call routing by team</p>
+    </div>
+    <div class="page-actions">
+        <a href="{{ url_for('admin.new_department') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add</a>
+    </div>
 </div>
-<div class="card">
-    <table class="table mb-0">
-        <thead class="table-light"><tr><th>Name</th><th>Active</th><th>Actions</th></tr></thead>
+<div class="table-wrap">
+    <table class="table">
+        <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
         <tbody>
             {% for d in departments %}
             <tr>
-                <td>{{ d.DepartmentName }}</td>
-                <td>{% if d.IsActive %}Yes{% else %}No{% endif %}</td>
-                <td><a href="{{ url_for('admin.edit_department', dept_id=d.DepartmentID) }}" class="btn btn-sm btn-outline-primary">Edit</a></td>
+                <td class="fw-medium" style="color:var(--cl-text)">{{ d.DepartmentName }}</td>
+                <td>{% if d.IsActive %}<span class="badge status-resolved">Active</span>{% else %}<span class="badge status-closed">Inactive</span>{% endif %}</td>
+                <td class="table-actions">
+                    <a href="{{ url_for('admin.edit_department', dept_id=d.DepartmentID) }}" class="btn btn-ghost btn-sm">Edit</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
