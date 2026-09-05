@@ -4,7 +4,7 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">Calls</h1>
-        <p class="page-subtitle">Search, filter, and manage call logs</p>
+        <p class="page-subtitle">Inbox · search and triage</p>
     </div>
     <div class="page-actions">
         <a href="{{ url_for('calls.export_csv', **request.args) }}" class="btn btn-secondary btn-sm">
@@ -16,20 +16,20 @@
     </div>
 </div>
 
+<div class="quick-filters">
+    {% set st = request.args.get('status', '') %}
+    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st %}active{% endif %}">All</a>
+    {% for s in ['Open','In Progress','Pending','Resolved','Closed'] %}
+    <a href="{{ url_for('calls.list_calls', status=s, search=request.args.get('search',''), priority=request.args.get('priority',''), department=request.args.get('department','')) }}"
+       class="chip {% if st == s %}active{% endif %}">{{ s }}</a>
+    {% endfor %}
+</div>
+
 <div class="filter-bar">
-    <form method="GET" class="row align-items-end">
-        <div class="col-md-3">
+    <form method="GET" class="row align-items-end g-2">
+        <div class="col-md-4">
             <label class="form-label">Search</label>
-            <input type="text" name="search" value="{{ request.args.get('search', '') }}" class="form-control" placeholder="ID, name, phone…">
-        </div>
-        <div class="col-md-2">
-            <label class="form-label">Status</label>
-            <select name="status" class="form-select">
-                <option value="">All</option>
-                {% for s in ['Open','In Progress','Pending','Resolved','Closed'] %}
-                <option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>
-                {% endfor %}
-            </select>
+            <input type="text" name="search" value="{{ request.args.get('search', '') }}" class="form-control" placeholder="ID, name, phone…" autofocus>
         </div>
         <div class="col-md-2">
             <label class="form-label">Priority</label>
@@ -49,7 +49,8 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-1">
+        <input type="hidden" name="status" value="{{ request.args.get('status', '') }}">
+        <div class="col-md-2">
             <label class="form-label">Per page</label>
             <select name="per_page" class="form-select">
                 {% for n in [10,25,50] %}
@@ -63,35 +64,40 @@
     </form>
 </div>
 
-<div class="table-wrap">
+<div class="table-wrap inbox-table">
     <div class="table-responsive">
-        <table class="table">
+        <table class="table table-dense">
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th style="width:64px">ID</th>
                     <th>Caller</th>
-                    <th>Phone</th>
                     <th>Status</th>
                     <th>Priority</th>
+                    <th>Dept</th>
                     <th>Assigned</th>
                     <th>Date</th>
-                    <th></th>
+                    <th style="width:40px"></th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in calls %}
-                <tr>
-                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}">#{{ c.CallID }}</a></td>
-                    <td class="fw-medium" style="color:var(--cl-text)">{{ c.CallerName }}</td>
-                    <td>{{ c.PhoneNumber }}</td>
+                <tr class="inbox-row" data-call-id="{{ c.CallID }}" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
+                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link" onclick="event.stopPropagation()">#{{ c.CallID }}</a></td>
+                    <td>
+                        <div class="caller-cell">
+                            <span class="caller-name">{{ c.CallerName }}</span>
+                            <span class="caller-phone">{{ c.PhoneNumber }}</span>
+                        </div>
+                    </td>
                     <td><span class="badge status-{{ c.Status|lower|replace(' ', '-') }}">{{ c.Status }}</span></td>
                     <td><span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span></td>
-                    <td>{{ c.assignee.FullName if c.assignee else '—' }}</td>
-                    <td>{{ c.DateLogged.strftime('%b %d, %Y') if c.DateLogged else '' }}</td>
+                    <td>{{ c.Department or '—' }}</td>
+                    <td>{{ c.assignee.FullName.split()[0] if c.assignee else '—' }}</td>
+                    <td class="text-muted">{{ c.DateLogged.strftime('%b %d') if c.DateLogged else '' }}</td>
                     <td class="table-actions">
-                        <a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="btn btn-ghost btn-sm btn-icon" title="View">
-                            <i class="fas fa-arrow-right"></i>
-                        </a>
+                        <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}" title="Preview">
+                            <i class="fas fa-panel-right"></i>
+                        </button>
                     </td>
                 </tr>
                 {% else %}
