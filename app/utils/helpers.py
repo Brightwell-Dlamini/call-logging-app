@@ -8,7 +8,6 @@ from app.models import CallLog, CallActivity, User
 
 
 def log_activity(call_id: int, user_id: int, action: str, details: str = None) -> CallActivity:
-    """Record an activity entry for a call."""
     activity = CallActivity(
         CallID=call_id,
         UserID=user_id,
@@ -20,7 +19,6 @@ def log_activity(call_id: int, user_id: int, action: str, details: str = None) -
 
 
 def age_hours(dt):
-    """Hours since datetime (UTC)."""
     if not dt:
         return None
     delta = datetime.utcnow() - dt
@@ -28,7 +26,6 @@ def age_hours(dt):
 
 
 def sla_risk(call):
-    """Simple SLA risk: critical/high open longer than thresholds."""
     if call.Status in ('Resolved', 'Closed'):
         return 'ok'
     hours = age_hours(call.DateLogged) or 0
@@ -46,7 +43,6 @@ def sla_risk(call):
 
 
 def get_recent_activity(limit=12):
-    """Latest audit events with user + call context."""
     rows = (
         CallActivity.query
         .order_by(CallActivity.ActivityDate.desc())
@@ -68,7 +64,6 @@ def get_recent_activity(limit=12):
 
 
 def get_dashboard_stats(user=None):
-    """Compute key dashboard statistics. Optionally scope personal queue."""
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
     total_calls = CallLog.query.count()
@@ -88,12 +83,16 @@ def get_dashboard_stats(user=None):
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).count()
 
-    # SLA posture on open queue
     open_q = CallLog.query.filter(
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).all()
     sla_breach = sum(1 for c in open_q if sla_risk(c) == 'breach')
     sla_warn = sum(1 for c in open_q if sla_risk(c) == 'warn')
+
+    avg_sat = db.session.query(func.avg(CallLog.SatisfactionRating)).filter(
+        CallLog.SatisfactionRating.isnot(None)
+    ).scalar()
+    avg_satisfaction = round(float(avg_sat), 1) if avg_sat is not None else None
 
     my_open = 0
     if user is not None and getattr(user, 'UserID', None):
@@ -145,12 +144,7 @@ def get_dashboard_stats(user=None):
         for uid, name, cnt in workload_rows
     ]
 
-    recent_calls = (
-        CallLog.query
-        .order_by(CallLog.DateLogged.desc())
-        .limit(8)
-        .all()
-    )
+    recent_calls = CallLog.query.order_by(CallLog.DateLogged.desc()).limit(8).all()
 
     return {
         'total_calls': total_calls,
@@ -161,6 +155,7 @@ def get_dashboard_stats(user=None):
         'my_open': my_open,
         'sla_breach': sla_breach,
         'sla_warn': sla_warn,
+        'avg_satisfaction': avg_satisfaction,
         'status_counts': status_counts,
         'calls_per_day': calls_per_day,
         'dept_counts': dept_counts,
