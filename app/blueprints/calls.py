@@ -20,7 +20,6 @@ calls_bp = Blueprint('calls', __name__, url_prefix='/calls')
 
 
 def _populate_agent_choices(form):
-    """Populate Assign To dropdown with active agents/managers."""
     agents = User.query.filter(
         User.IsActive == True,
         User.Role.in_(['Agent', 'Manager', 'Admin'])
@@ -31,7 +30,6 @@ def _populate_agent_choices(form):
 
 
 def _populate_department_choices(form):
-    """Populate department dropdown."""
     depts = Department.query.filter_by(IsActive=True).order_by(Department.DepartmentName).all()
     form.department.choices = [('', '— Select —')] + [
         (d.DepartmentName, d.DepartmentName) for d in depts
@@ -42,7 +40,6 @@ def _populate_department_choices(form):
 @login_required
 @login_required_active
 def list_calls():
-    """Paginated, filterable, searchable call list."""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
     if per_page not in (10, 25, 50):
@@ -56,6 +53,8 @@ def list_calls():
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
     sort = request.args.get('sort', 'date_desc')
+    mine = request.args.get('mine')
+    unassigned = request.args.get('unassigned')
 
     query = CallLog.query
 
@@ -82,6 +81,10 @@ def list_calls():
         query = query.filter(CallLog.Department == department)
     if assigned_to:
         query = query.filter(CallLog.AssignedTo == assigned_to)
+    if mine:
+        query = query.filter(CallLog.AssignedTo == current_user.UserID)
+    if unassigned:
+        query = query.filter(CallLog.AssignedTo.is_(None))
     if date_from:
         try:
             query = query.filter(CallLog.DateLogged >= datetime.strptime(date_from, '%Y-%m-%d'))
@@ -109,7 +112,6 @@ def list_calls():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     calls = pagination.items
-
     departments = Department.query.filter_by(IsActive=True).order_by(Department.DepartmentName).all()
 
     return render_template(
@@ -126,7 +128,6 @@ def list_calls():
 @login_required_active
 @agent_required
 def new_call():
-    """Create a new call log entry."""
     form = CallLogForm()
     _populate_department_choices(form)
     _populate_agent_choices(form)
@@ -172,7 +173,6 @@ def new_call():
 @login_required
 @login_required_active
 def detail(call_id):
-    """Call detail view with activity log and update forms."""
     call = CallLog.query.get_or_404(call_id)
     update_form = CallUpdateForm(obj=call)
     if call.SatisfactionRating:
@@ -208,7 +208,6 @@ def detail(call_id):
 @login_required_active
 @agent_required
 def update_call(call_id):
-    """Update status, resolution, time spent, rating."""
     call = CallLog.query.get_or_404(call_id)
     form = CallUpdateForm()
     if form.validate_on_submit():
@@ -240,7 +239,6 @@ def update_call(call_id):
 @login_required_active
 @agent_required
 def add_note(call_id):
-    """Append a note to the call."""
     call = CallLog.query.get_or_404(call_id)
     form = NoteForm()
     if form.validate_on_submit():
@@ -263,7 +261,6 @@ def add_note(call_id):
 @login_required_active
 @agent_required
 def assign_call(call_id):
-    """Assign or reassign a call."""
     call = CallLog.query.get_or_404(call_id)
     form = AssignForm()
     _populate_agent_choices(form)
@@ -292,10 +289,49 @@ def assign_call(call_id):
 @login_required_active
 @agent_required
 def bulk_update():
-    """Bulk status change for selected calls (JSON or form)."""
+    """Bulk status or assign for selected calls (JSON or form)."""
     data = request.get_json(silent=True) or {}
     ids = data.get('ids') or request.form.getlist('ids')
     action = (data.get('action') or request.form.get('action') or '').strip().lower()
+
+    try:
+        ids = [int(i) for i in ids]
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error='Invalid ids'), 400
+    if not ids:
+        return jsonify(ok=False, error='No calls selected'), 400
+    ids = ids[:100]
+    calls_q = CallLog.query.filter(CallLog.CallID.in_(ids)).all()
+
+    # Bulk assign
+    if action in ('assign', 'claim'):
+        if action == 'claim':
+            agent_id = current_user.UserID
+        else:
+            agent_id = data.get('assigned_to') or request.form.get('assigned_to', type=int)
+            try:
+                agent_id = int(agent_id) if agent_id is not None else None
+            except (TypeError, ValueError):
+                agent_id = None
+            if agent_id == 0:
+                agent_id = None
+        agent = User.query.get(agent_id) if agent_id else None
+        name = agent.FullName if agent else 'Unassigned'
+        updated = 0
+        for call in calls_q:
+            call.AssignedTo = agent_id
+            call.LastUpdated = datetime.utcnow()
+            if action == 'claim' and call.Status == 'Open':
+                call.Status = 'In Progress'
+            log_activity(
+                call.CallID,
+                current_user.UserID,
+                'Bulk Assign',
+                f'Assigned to {name}'
+            )
+            updated += 1
+        db.session.commit()
+        return jsonify(ok=True, updated=updated, message=f'{updated} call(s) assigned to {name}')
 
     status_map = {
         'progress': 'In Progress',
@@ -311,16 +347,6 @@ def bulk_update():
     if not new_status:
         return jsonify(ok=False, error='Unknown action'), 400
 
-    try:
-        ids = [int(i) for i in ids]
-    except (TypeError, ValueError):
-        return jsonify(ok=False, error='Invalid ids'), 400
-
-    if not ids:
-        return jsonify(ok=False, error='No calls selected'), 400
-
-    ids = ids[:100]
-    calls_q = CallLog.query.filter(CallLog.CallID.in_(ids)).all()
     updated = 0
     for call in calls_q:
         old = call.Status
@@ -350,7 +376,6 @@ def bulk_update():
 @login_required
 @login_required_active
 def export_csv():
-    """Export filtered calls to CSV."""
     query = CallLog.query.order_by(CallLog.DateLogged.desc())
     status = request.args.get('status')
     if status:
@@ -399,7 +424,6 @@ def export_csv():
 @login_required_active
 @admin_required
 def delete_call(call_id):
-    """Hard-delete a call (admin only)."""
     call = CallLog.query.get_or_404(call_id)
     cid = call.CallID
     db.session.delete(call)
