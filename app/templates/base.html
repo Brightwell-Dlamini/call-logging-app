@@ -13,6 +13,7 @@
     <link href="{{ url_for('static', filename='css/shell.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/features.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/login-toast.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/worldclass.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -78,7 +79,7 @@
                 <span class="avatar">{{ current_user.FullName[0]|upper }}</span>
                 <div class="user-meta">
                     <div class="user-name">{{ current_user.FullName }}</div>
-                    <div class="user-role">{{ current_user.Role }}</div>
+                    <div class="user-role">{{ current_user.Role }} · <span class="presence-pill" style="padding:0;background:none;text-transform:none;letter-spacing:0;"><span class="dot"></span> Online</span></div>
                 </div>
             </div>
             <a href="{{ url_for('auth.logout') }}" class="nav-item logout">
@@ -98,10 +99,13 @@
                 <span class="d-none d-md-inline">Search</span>
                 <kbd class="cmd-hint d-none d-lg-inline">⌘K</kbd>
             </button>
+            <button type="button" class="btn btn-ghost btn-sm btn-icon" data-shortcuts-open title="Keyboard shortcuts">
+                <i class="fas fa-keyboard"></i>
+            </button>
             <button type="button" class="btn btn-ghost btn-sm btn-icon" data-theme-cycle title="Toggle theme">
                 <i class="fas fa-moon"></i>
             </button>
-            <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm">
+            <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm" id="btnNewCall">
                 <i class="fas fa-plus"></i> Log call
             </a>
         </header>
@@ -141,6 +145,22 @@
     <div id="drawerContent" class="drawer-loading">Loading…</div>
   </div>
 </div>
+<div class="shortcuts-overlay" id="shortcutsOverlay" hidden>
+  <div class="shortcuts-modal" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="shortcuts-header">
+      <span>Keyboard shortcuts</span>
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" data-shortcuts-close aria-label="Close"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="shortcuts-body">
+      <div class="shortcut-row"><span>Command palette</span><span class="keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
+      <div class="shortcut-row"><span>Log new call</span><span class="keys"><kbd>C</kbd></span></div>
+      <div class="shortcut-row"><span>Focus inbox search</span><span class="keys"><kbd>/</kbd></span></div>
+      <div class="shortcut-row"><span>Toggle theme</span><span class="keys"><kbd>T</kbd></span></div>
+      <div class="shortcut-row"><span>Keyboard help</span><span class="keys"><kbd>?</kbd></span></div>
+      <div class="shortcut-row"><span>Close panel / modal</span><span class="keys"><kbd>Esc</kbd></span></div>
+    </div>
+  </div>
+</div>
 {% endif %}
     <div class="toast-stack" id="toastStack" aria-live="polite"></div>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -149,6 +169,7 @@
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/desk.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
