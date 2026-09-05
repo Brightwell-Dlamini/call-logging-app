@@ -1,133 +1,122 @@
-# CallLog Pro – Call Logging Application
+# CallLog Pro
 
-A production-ready call logging system for organizations to track customer calls, support requests, incidents, and follow-ups with role-based access control (Admin, Agent, Manager).
+Production-style **call logging system** for organisational support desks: triage inbox, kanban board, agent queue, workload, reports, audit trail, and REST API.
+
+**Live:** [call-logging-app-six.vercel.app](https://call-logging-app-six.vercel.app)  
+**Stack:** Flask · SQLAlchemy · Neon Postgres · Vercel serverless · Bootstrap 5
+
+---
+
+## Architecture
+
+```
+Browser (SPA-like UI)
+    │
+    ▼
+Vercel Serverless (Python / run.py entrypoint)
+    │  Flask application factory (app/__init__.py)
+    │  CSRF · Login · Rate limit · RBAC decorators
+    ▼
+Neon Postgres (pooler URL, NullPool on Vercel)
+    tables: users, call_log, call_activity, departments
+```
+
+| Layer | Responsibility |
+|-------|----------------|
+| **Blueprints** | `auth`, `dashboard`, `calls`, `board`, `reports`, `admin`, `api` |
+| **Models** | User (Admin/Manager/Agent), CallLog, CallActivity (audit), Department |
+| **Security** | Flask-Login sessions, CSRF (header + form), hashed passwords, role decorators |
+| **Persistence** | `DATABASE_URL` → `postgresql+psycopg` + `sslmode=require`; SQLite fallback for local/dev |
+| **Ops UI** | Inbox + filters, kanban board, my queue, workload bars, SLA chips |
+
+Serverless note: connections use **NullPool** so each invocation does not hold idle Postgres connections.
+
+---
 
 ## Features
 
-- **Authentication & Authorization**: Flask-Login, bcrypt-style password hashing, role-based decorators, session timeout, login rate limiting.
-- **Dashboard**: Statistics cards, Chart.js visualizations (status doughnut, daily bar, department bar), recent calls.
-- **Call Logging**: Create, list (search/filter/sort/paginate), detail view, status updates, notes, assignment, activity audit trail.
-- **Reports**: Daily log, monthly summary, agent performance, department breakdown; Excel & PDF export.
-- **Admin**: User management, department management, system-wide audit log.
-- **REST API**: JSON endpoints for calls, users, dashboard stats, and daily reports.
-- **Security**: CSRF protection, ORM-based queries, input validation, XSS-safe templates, audit logging.
+- Role-based UI (Agent desk vs Manager ops vs Admin)
+- Call CRUD, notes, assign, bulk status/assign, CSV export
+- Kanban board (drag status + assign dropdown)
+- My queue + claim from unassigned pool
+- Agent workload view
+- SLA risk chips (`ok` / `warn` / `breach`) by priority age
+- Dashboard charts (status, 7-day volume, department)
+- Reports: daily, monthly, agent, department · Excel & PDF
+- Audit log on status/assign changes
+- REST API under `/api/*`
+- `/health` probes DB backend (`postgres` vs `sqlite`)
 
-## Technology Stack
+---
 
-- Backend: Flask 3.x, SQLAlchemy, Flask-Login, Flask-WTF, Flask-Migrate, Flask-Caching, Flask-Limiter
-- Database: SQLite (development) / MySQL (production)
-- Frontend: Bootstrap 5, Chart.js, DataTables, Font Awesome
-- Export: openpyxl (Excel), ReportLab (PDF)
+## Demo credentials
 
-## Quick Start (Development)
+| Username | Password | Role |
+|----------|----------|------|
+| admin | admin123 | Admin |
+| agent1 | agent123 | Agent |
+| manager1 | manager123 | Manager |
+
+See **[DEMO.md](DEMO.md)** for a 5-minute viva script.
+
+---
+
+## Environment variables (Vercel)
+
+| Key | Required | Notes |
+|-----|----------|--------|
+| `DATABASE_URL` | Yes (prod) | Neon connection string |
+| `SECRET_KEY` | Yes | Strong random string |
+| `FLASK_ENV` | Recommended | `production` |
+| `ENABLE_SEED` | Optional | Set to `1` to allow `/seed` in production |
+
+**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Rotate Neon credentials if they were ever shared in chat. Change demo passwords before any real users.
+
+---
+
+## Local development
 
 ```bash
-# Clone and enter directory
-cd call-logging-app
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-
-# Install dependencies
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-# Copy environment file
-cp .env.example .env
-# Edit .env and set a strong SECRET_KEY
-
-# Initialize database and seed sample data
-python -c "from scripts.seed import seed; seed()"
-
-# Run the application
+cp .env.example .env   # set SECRET_KEY
 python run.py
 ```
 
 Open http://127.0.0.1:5000
 
-**Default credentials**
+With Neon: set `DATABASE_URL` in `.env` the same way as on Vercel.
 
-| Username | Password   | Role    |
-|----------|------------|---------|
-| admin    | admin123   | Admin   |
-| agent1   | password123| Agent   |
-| manager1 | password123| Manager |
+---
 
-## Production Deployment
-
-### Docker Compose
+## Tests
 
 ```bash
-export SECRET_KEY=$(openssl rand -hex 32)
-docker-compose up -d --build
-```
-
-Application available at http://localhost:8000
-
-### Gunicorn
-
-```bash
-gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 run:app
-```
-
-### Nginx (example reverse proxy)
-
-```nginx
-server {
-    listen 80;
-    server_name calllog.example.com;
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-## API Endpoints
-
-All endpoints require an authenticated session.
-
-| Method | Endpoint                | Description              |
-|--------|-------------------------|--------------------------|
-| GET    | /api/calls              | List calls (filters)     |
-| POST   | /api/calls              | Create call              |
-| GET    | /api/calls/<id>         | Call details             |
-| PUT    | /api/calls/<id>         | Update call              |
-| GET    | /api/users              | List agents              |
-| GET    | /api/dashboard/stats    | Dashboard statistics     |
-| GET    | /api/reports/daily      | Daily report data        |
-
-## Project Structure
-
-```
-call-logging-app/
-├── app/
-│   ├── blueprints/     # auth, calls, dashboard, admin, reports, api
-│   ├── forms/
-│   ├── models/
-│   ├── templates/
-│   ├── static/
-│   └── utils/
-├── scripts/seed.py
-├── tests/
-├── config.py
-├── run.py
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-└── README.md
-```
-
-## Testing
-
-```bash
-pip install pytest pytest-flask
+pip install pytest
 pytest tests/ -v
 ```
 
+Covers health, login, create call, bulk status, API stats.
+
+---
+
+## Project layout
+
+```
+app/
+  blueprints/   # auth, calls, board, dashboard, admin, reports, api
+  models/       # user, call, department
+  templates/    # shell UI + board + reports
+  static/       # CSS/JS design system
+  utils/        # decorators, helpers (stats, SLA)
+config.py       # URL normalizer, NullPool
+run.py          # Vercel / local entrypoint
+tests/
+DEMO.md
+```
+
+---
+
 ## License
 
-MIT
+MIT — final-year project / portfolio use encouraged.
