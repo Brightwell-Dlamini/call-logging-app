@@ -4,32 +4,55 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">Calls</h1>
-        <p class="page-subtitle">Inbox · search and triage</p>
+        <p class="page-subtitle">Inbox · triage like a pro</p>
     </div>
     <div class="page-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-shortcuts-open title="Keyboard shortcuts">
+            <i class="fas fa-keyboard"></i>
+        </button>
         <a href="{{ url_for('calls.export_csv', **request.args) }}" class="btn btn-secondary btn-sm">
             <i class="fas fa-download"></i> Export
         </a>
-        <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm">
+        <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm" id="btnNewCall">
             <i class="fas fa-plus"></i> Log call
         </a>
     </div>
 </div>
 
+{% set crit_count = calls|selectattr('Priority', 'equalto', 'Critical')|list|length %}
+{% set open_count = calls|selectattr('Status', 'equalto', 'Open')|list|length %}
+
+{% if crit_count > 0 %}
+<div class="crit-banner">
+    <i class="fas fa-bolt"></i>
+    <div><strong>{{ crit_count }} critical</strong> call{{ 's' if crit_count != 1 else '' }} on this page need attention.</div>
+    <a href="{{ url_for('calls.list_calls', priority='Critical') }}" class="btn btn-secondary btn-sm">Filter critical</a>
+</div>
+{% endif %}
+
+<div class="inbox-meta">
+    <span class="meta-stat"><strong>{{ pagination.total if pagination else calls|length }}</strong> total</span>
+    <span class="meta-stat"><strong>{{ open_count }}</strong> open (page)</span>
+    <span class="desk-tip"><kbd>?</kbd> shortcuts · click row for preview · <kbd>C</kbd> log call</span>
+</div>
+
 <div class="quick-filters">
     {% set st = request.args.get('status', '') %}
-    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st %}active{% endif %}">All</a>
+    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st and not request.args.get('priority') %}active{% endif %}">All</a>
     {% for s in ['Open','In Progress','Pending','Resolved','Closed'] %}
     <a href="{{ url_for('calls.list_calls', status=s, search=request.args.get('search',''), priority=request.args.get('priority',''), department=request.args.get('department','')) }}"
        class="chip {% if st == s %}active{% endif %}">{{ s }}</a>
     {% endfor %}
+    <a href="{{ url_for('calls.list_calls', priority='Critical') }}" class="chip {% if request.args.get('priority') == 'Critical' %}active{% endif %}">
+        <span class="urgency-dot critical" style="margin-right:4px"></span> Critical
+    </a>
 </div>
 
 <div class="filter-bar">
     <form method="GET" class="row align-items-end g-2">
         <div class="col-md-4">
             <label class="form-label">Search</label>
-            <input type="text" name="search" value="{{ request.args.get('search', '') }}" class="form-control" placeholder="ID, name, phone…" autofocus>
+            <input type="text" name="search" value="{{ request.args.get('search', '') }}" class="form-control" placeholder="ID, name, phone…" id="inboxSearch">
         </div>
         <div class="col-md-2">
             <label class="form-label">Priority</label>
@@ -64,25 +87,46 @@
     </form>
 </div>
 
+<div class="bulk-bar" id="bulkBar">
+    <div class="bulk-count"><span id="bulkCount">0</span> selected</div>
+    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="progress">Mark In Progress</button>
+    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="resolve">Mark Resolved</button>
+    <button type="button" class="btn btn-ghost btn-sm" id="bulkClear">Clear</button>
+</div>
+
 <div class="table-wrap inbox-table">
     <div class="table-responsive">
         <table class="table table-dense">
             <thead>
                 <tr>
-                    <th style="width:64px">ID</th>
+                    <th style="width:36px"><input type="checkbox" class="row-check" id="checkAll" title="Select all"></th>
+                    <th style="width:72px">ID</th>
                     <th>Caller</th>
                     <th>Status</th>
                     <th>Priority</th>
-                    <th>Dept</th>
+                    <th>SLA</th>
                     <th>Assigned</th>
-                    <th>Date</th>
+                    <th>Logged</th>
                     <th style="width:40px"></th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in calls %}
-                <tr class="inbox-row" data-call-id="{{ c.CallID }}" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
-                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link" onclick="event.stopPropagation()">#{{ c.CallID }}</a></td>
+                <tr class="inbox-row {% if c.Priority == 'Critical' and c.Status not in ['Resolved','Closed'] %}is-critical{% endif %}"
+                    data-call-id="{{ c.CallID }}"
+                    data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}"
+                    data-status="{{ c.Status }}"
+                    data-priority="{{ c.Priority }}"
+                    data-logged="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}">
+                    <td onclick="event.stopPropagation()">
+                        <input type="checkbox" class="row-check row-select" value="{{ c.CallID }}">
+                    </td>
+                    <td>
+                        <span class="d-inline-flex align-items-center gap-2">
+                            <span class="urgency-dot {{ c.Priority|lower }}"></span>
+                            <a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link" onclick="event.stopPropagation()">#{{ c.CallID }}</a>
+                        </span>
+                    </td>
                     <td>
                         <div class="caller-cell">
                             <span class="caller-name">{{ c.CallerName }}</span>
@@ -91,10 +135,20 @@
                     </td>
                     <td><span class="badge status-{{ c.Status|lower|replace(' ', '-') }}">{{ c.Status }}</span></td>
                     <td><span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span></td>
-                    <td>{{ c.Department or '—' }}</td>
+                    <td>
+                        {% if c.Status in ['Resolved','Closed'] %}
+                        <span class="sla-chip ok">Done</span>
+                        {% elif c.Priority == 'Critical' %}
+                        <span class="sla-chip overdue" data-sla data-logged="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}" data-target-hours="2">—</span>
+                        {% elif c.Priority == 'High' %}
+                        <span class="sla-chip warning" data-sla data-logged="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}" data-target-hours="8">—</span>
+                        {% else %}
+                        <span class="sla-chip ok" data-sla data-logged="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}" data-target-hours="24">—</span>
+                        {% endif %}
+                    </td>
                     <td>{{ c.assignee.FullName.split()[0] if c.assignee else '—' }}</td>
-                    <td class="text-muted">{{ c.DateLogged.strftime('%b %d') if c.DateLogged else '' }}</td>
-                    <td class="table-actions">
+                    <td class="rel-time" data-rel-time="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}">{{ c.DateLogged.strftime('%b %d') if c.DateLogged else '' }}</td>
+                    <td class="table-actions" onclick="event.stopPropagation()">
                         <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}" title="Preview">
                             <i class="fas fa-panel-right"></i>
                         </button>
@@ -102,10 +156,11 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="empty-state">
                             <div class="empty-icon"><i class="fas fa-inbox"></i></div>
-                            <p>No calls match your filters.</p>
+                            <p>Queue is clear — no calls match these filters.</p>
+                            <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm mt-2">Log a call</a>
                         </div>
                     </td>
                 </tr>
