@@ -1,38 +1,19 @@
 """
 RESTful JSON API endpoints for mobile / external integration.
-Requires authentication via session (or can be extended with tokens).
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from app import db
-from app.models import CallLog, User
-from app.utils.helpers import get_dashboard_stats, log_activity
+from app.models import CallLog, CallActivity, User
+from app.utils.helpers import get_dashboard_stats, log_activity, age_hours, sla_risk
 from app.utils.decorators import agent_required, login_required_active
 
 api_bp = Blueprint('api', __name__)
 
 
-@api_bp.route('/calls', methods=['GET'])
-@login_required
-@login_required_active
-def list_calls():
-    """GET /api/calls – List calls with optional filters."""
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 25, type=int), 100)
-    status = request.args.get('status')
-    priority = request.args.get('priority')
-
-    query = CallLog.query
-    if status:
-        query = query.filter(CallLog.Status == status)
-    if priority:
-        query = query.filter(CallLog.Priority == priority)
-
-    pagination = query.order_by(CallLog.DateLogged.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
-    items = [{
+def _call_dict(c, full=False):
+    d = {
         'call_id': c.CallID,
         'caller_name': c.CallerName,
         'phone_number': c.PhoneNumber,
@@ -41,11 +22,52 @@ def list_calls():
         'priority': c.Priority,
         'status': c.Status,
         'assigned_to': c.AssignedTo,
-        'date_logged': c.DateLogged.isoformat() if c.DateLogged else None
-    } for c in pagination.items]
+        'assignee_name': c.assignee.FullName if c.assignee else None,
+        'date_logged': c.DateLogged.isoformat() if c.DateLogged else None,
+        'age_hours': age_hours(c.DateLogged),
+        'sla': sla_risk(c),
+    }
+    if full:
+        d.update({
+            'reason_for_call': c.ReasonForCall,
+            'notes': c.Notes,
+            'resolution': c.Resolution,
+            'time_spent': c.TimeSpent,
+            'satisfaction_rating': c.SatisfactionRating,
+            'last_updated': c.LastUpdated.isoformat() if c.LastUpdated else None,
+        })
+    return d
 
+
+@api_bp.route('/calls', methods=['GET'])
+@login_required
+@login_required_active
+def list_calls():
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 25, type=int), 100)
+    status = request.args.get('status')
+    priority = request.args.get('priority')
+    assigned_to = request.args.get('assigned_to', type=int)
+    mine = request.args.get('mine')
+    unassigned = request.args.get('unassigned')
+
+    query = CallLog.query
+    if status:
+        query = query.filter(CallLog.Status == status)
+    if priority:
+        query = query.filter(CallLog.Priority == priority)
+    if assigned_to:
+        query = query.filter(CallLog.AssignedTo == assigned_to)
+    if mine:
+        query = query.filter(CallLog.AssignedTo == current_user.UserID)
+    if unassigned:
+        query = query.filter(CallLog.AssignedTo.is_(None))
+
+    pagination = query.order_by(CallLog.DateLogged.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
     return jsonify({
-        'items': items,
+        'items': [_call_dict(c) for c in pagination.items],
         'page': pagination.page,
         'pages': pagination.pages,
         'total': pagination.total
@@ -57,7 +79,6 @@ def list_calls():
 @login_required_active
 @agent_required
 def create_call():
-    """POST /api/calls – Create a new call."""
     data = request.get_json() or {}
     required = ['caller_name', 'phone_number', 'call_type', 'reason_for_call']
     for field in required:
@@ -79,36 +100,15 @@ def create_call():
     db.session.flush()
     log_activity(call.CallID, current_user.UserID, 'Created (API)', 'Created via API')
     db.session.commit()
-
-    return jsonify({
-        'call_id': call.CallID,
-        'message': 'Call created successfully'
-    }), 201
+    return jsonify({'call_id': call.CallID, 'message': 'Call created successfully'}), 201
 
 
 @api_bp.route('/calls/<int:call_id>', methods=['GET'])
 @login_required
 @login_required_active
 def get_call(call_id):
-    """GET /api/calls/<id> – Call details."""
     call = CallLog.query.get_or_404(call_id)
-    return jsonify({
-        'call_id': call.CallID,
-        'caller_name': call.CallerName,
-        'phone_number': call.PhoneNumber,
-        'department': call.Department,
-        'call_type': call.CallType,
-        'reason_for_call': call.ReasonForCall,
-        'priority': call.Priority,
-        'status': call.Status,
-        'assigned_to': call.AssignedTo,
-        'notes': call.Notes,
-        'resolution': call.Resolution,
-        'time_spent': call.TimeSpent,
-        'satisfaction_rating': call.SatisfactionRating,
-        'date_logged': call.DateLogged.isoformat() if call.DateLogged else None,
-        'last_updated': call.LastUpdated.isoformat() if call.LastUpdated else None
-    })
+    return jsonify(_call_dict(call, full=True))
 
 
 @api_bp.route('/calls/<int:call_id>', methods=['PUT'])
@@ -116,7 +116,6 @@ def get_call(call_id):
 @login_required_active
 @agent_required
 def update_call(call_id):
-    """PUT /api/calls/<id> – Update call."""
     call = CallLog.query.get_or_404(call_id)
     data = request.get_json() or {}
     if 'status' in data:
@@ -139,11 +138,31 @@ def update_call(call_id):
     return jsonify({'message': 'Call updated', 'call_id': call.CallID})
 
 
+@api_bp.route('/calls/<int:call_id>/activities', methods=['GET'])
+@login_required
+@login_required_active
+def call_activities(call_id):
+    CallLog.query.get_or_404(call_id)
+    acts = (
+        CallActivity.query.filter_by(CallID=call_id)
+        .order_by(CallActivity.ActivityDate.desc())
+        .limit(50)
+        .all()
+    )
+    return jsonify([{
+        'activity_id': a.ActivityID,
+        'action': a.Action,
+        'details': a.Details,
+        'user_id': a.UserID,
+        'user_name': a.user.FullName if a.user else None,
+        'date': a.ActivityDate.isoformat() if a.ActivityDate else None,
+    } for a in acts])
+
+
 @api_bp.route('/users', methods=['GET'])
 @login_required
 @login_required_active
 def list_users():
-    """GET /api/users – List active agents."""
     users = User.query.filter(
         User.IsActive == True,
         User.Role.in_(['Agent', 'Manager', 'Admin'])
@@ -160,16 +179,18 @@ def list_users():
 @login_required
 @login_required_active
 def dashboard_stats():
-    """GET /api/dashboard/stats – Dashboard statistics."""
-    stats = get_dashboard_stats()
+    stats = get_dashboard_stats(user=current_user)
     return jsonify({
         'total_calls': stats['total_calls'],
         'open_calls': stats['open_calls'],
         'resolved_today': stats['resolved_today'],
         'high_priority': stats['high_priority'],
+        'unassigned': stats['unassigned'],
+        'my_open': stats['my_open'],
         'status_counts': stats['status_counts'],
         'calls_per_day': stats['calls_per_day'],
-        'dept_counts': stats['dept_counts']
+        'dept_counts': stats['dept_counts'],
+        'workload': stats['workload'],
     })
 
 
@@ -177,21 +198,14 @@ def dashboard_stats():
 @login_required
 @login_required_active
 def daily_report():
-    """GET /api/reports/daily – Daily report data."""
     date_str = request.args.get('date', datetime.utcnow().strftime('%Y-%m-%d'))
     try:
         day = datetime.strptime(date_str, '%Y-%m-%d')
     except ValueError:
         return jsonify({'error': 'Invalid date format (YYYY-MM-DD)'}), 400
-    day_end = day + __import__('datetime').timedelta(days=1)
+    day_end = day + timedelta(days=1)
     calls = CallLog.query.filter(
         CallLog.DateLogged >= day,
         CallLog.DateLogged < day_end
     ).all()
-    return jsonify([{
-        'call_id': c.CallID,
-        'caller_name': c.CallerName,
-        'status': c.Status,
-        'priority': c.Priority,
-        'department': c.Department
-    } for c in calls])
+    return jsonify([_call_dict(c) for c in calls])
