@@ -29,8 +29,6 @@ def create_app(config_name=None):
 
     app = Flask(__name__)
     app.config.from_object(config[config_name])
-
-    # Allow AJAX to send token via header (matches desk.js X-CSRFToken)
     app.config.setdefault('WTF_CSRF_HEADERS', ['X-CSRFToken', 'X-CSRF-Token'])
 
     db.init_app(app)
@@ -59,10 +57,6 @@ def create_app(config_name=None):
     app.register_blueprint(reports_bp, url_prefix='/reports')
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(board_bp)
-
-    # Public / machine endpoints — no CSRF form token required
-    csrf.exempt(app.view_functions.get('health'))
-    csrf.exempt(app.view_functions.get('seed_endpoint'))
 
     @app.errorhandler(404)
     def not_found_error(error):
@@ -101,6 +95,74 @@ def create_app(config_name=None):
             'database': db_status,
             'backend': backend,
         }, code
+
+    @app.route('/seed', methods=['POST', 'GET'])
+    def seed_endpoint():
+        from app.models import User, Department, CallLog
+        from datetime import datetime, timedelta
+        created = []
+        try:
+            if User.query.count() == 0:
+                for username, email, full, role, pwd in [
+                    ('admin', 'admin@calllog.local', 'System Administrator', 'Admin', 'admin123'),
+                    ('agent1', 'agent1@calllog.local', 'Thabo Molefe', 'Agent', 'agent123'),
+                    ('manager1', 'manager1@calllog.local', 'Lerato Nkosi', 'Manager', 'manager123'),
+                ]:
+                    u = User(Username=username, Email=email, FullName=full, Role=role, IsActive=True)
+                    u.set_password(pwd)
+                    db.session.add(u)
+                    created.append(username)
+            for name in ['IT', 'HR', 'Sales', 'Support', 'Billing']:
+                if not Department.query.filter_by(DepartmentName=name).first():
+                    db.session.add(Department(DepartmentName=name, IsActive=True))
+                    created.append('dept:' + name)
+            db.session.flush()
+            if CallLog.query.count() == 0:
+                assignees = [u.UserID for u in User.query.limit(3).all()]
+                samples = [
+                    ('Sipho Dlamini', '+27821234567', 'Support', 'Incoming', 'Password reset not working', 'High', 'Open'),
+                    ('Nomsa Khumalo', '+27829876543', 'Billing', 'Incoming', 'Invoice discrepancy for March', 'Medium', 'In Progress'),
+                    ('Johan van der Berg', '+27831112233', 'IT', 'Incoming', 'VPN connection drops every hour', 'Critical', 'Open'),
+                    ('Aisha Patel', '+27824445566', 'HR', 'Outgoing', 'Follow-up on leave request', 'Low', 'Resolved'),
+                    ('Michael Chen', '+27827778899', 'Sales', 'Incoming', 'Quote for enterprise plan', 'Medium', 'Pending'),
+                    ('Fatima Abrahams', '+27820001122', 'Support', 'Incoming', 'App crashes on login', 'High', 'In Progress'),
+                    ('David Mokoena', '+27823334455', 'Billing', 'Incoming', 'Refund not received', 'High', 'Open'),
+                    ('Sarah Jacobs', '+27826667788', 'IT', 'Outgoing', 'Scheduled maintenance notification', 'Low', 'Closed'),
+                    ('Pieter Botha', '+27829990011', 'Sales', 'Incoming', 'Demo request for next week', 'Medium', 'Resolved'),
+                    ('Zanele Mthembu', '+27822223344', 'Support', 'Incoming', '2FA setup assistance', 'Medium', 'Open'),
+                    ('Ryan Smith', '+27825556677', 'HR', 'Incoming', 'Payslip access issue', 'Low', 'Pending'),
+                    ('Grace Ndlovu', '+27828889900', 'IT', 'Incoming', 'Email not syncing on mobile', 'High', 'In Progress'),
+                ]
+                now = datetime.utcnow()
+                for i, (name, phone, dept, ctype, reason, pri, status) in enumerate(samples):
+                    db.session.add(CallLog(
+                        CallerName=name, PhoneNumber=phone, Department=dept, CallType=ctype,
+                        ReasonForCall=reason, Priority=pri, Status=status,
+                        AssignedTo=assignees[i % len(assignees)] if assignees else None,
+                        DateLogged=now - timedelta(hours=i * 5),
+                        TimeSpent=30 if status in ('Resolved', 'Closed') else None,
+                        SatisfactionRating=5 if status in ('Resolved', 'Closed') else None,
+                        Resolution='Issue resolved' if status in ('Resolved', 'Closed') else None,
+                    ))
+                created.append(str(len(samples)) + ' sample calls')
+            if created:
+                db.session.commit()
+                return {
+                    'status': 'ok',
+                    'created': created,
+                    'logins': {'admin': 'admin123', 'agent1': 'agent123', 'manager1': 'manager123'},
+                }, 200
+            return {
+                'status': 'ok',
+                'message': 'Already seeded',
+                'logins': {'admin': 'admin123', 'agent1': 'agent123', 'manager1': 'manager123'},
+            }, 200
+        except Exception as e:
+            db.session.rollback()
+            return {'status': 'error', 'message': str(e)}, 500
+
+    csrf.exempt(health)
+    csrf.exempt(seed_endpoint)
 
     if not app.debug and not app.testing:
         if not (os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV')):
@@ -186,78 +248,5 @@ def create_app(config_name=None):
                 app.logger.info('Bootstrapped demo data: %s', created)
         except Exception as e:
             app.logger.warning('db bootstrap failed: %s', e)
-
-    @app.route('/seed', methods=['POST', 'GET'])
-    def seed_endpoint():
-        from app.models import User, Department, CallLog
-        from datetime import datetime, timedelta
-        import random
-        created = []
-        try:
-            if User.query.count() == 0:
-                for username, email, full, role, pwd in [
-                    ('admin', 'admin@calllog.local', 'System Administrator', 'Admin', 'admin123'),
-                    ('agent1', 'agent1@calllog.local', 'Thabo Molefe', 'Agent', 'agent123'),
-                    ('manager1', 'manager1@calllog.local', 'Lerato Nkosi', 'Manager', 'manager123'),
-                ]:
-                    u = User(Username=username, Email=email, FullName=full, Role=role, IsActive=True)
-                    u.set_password(pwd)
-                    db.session.add(u)
-                    created.append(username)
-            for name in ['IT', 'HR', 'Sales', 'Support', 'Billing']:
-                if not Department.query.filter_by(DepartmentName=name).first():
-                    db.session.add(Department(DepartmentName=name, IsActive=True))
-                    created.append('dept:' + name)
-            db.session.flush()
-            if CallLog.query.count() == 0:
-                assignees = [u.UserID for u in User.query.limit(3).all()]
-                samples = [
-                    ('Sipho Dlamini', '+27821234567', 'Support', 'Incoming', 'Password reset not working', 'High', 'Open'),
-                    ('Nomsa Khumalo', '+27829876543', 'Billing', 'Incoming', 'Invoice discrepancy for March', 'Medium', 'In Progress'),
-                    ('Johan van der Berg', '+27831112233', 'IT', 'Incoming', 'VPN connection drops every hour', 'Critical', 'Open'),
-                    ('Aisha Patel', '+27824445566', 'HR', 'Outgoing', 'Follow-up on leave request', 'Low', 'Resolved'),
-                    ('Michael Chen', '+27827778899', 'Sales', 'Incoming', 'Quote for enterprise plan', 'Medium', 'Pending'),
-                    ('Fatima Abrahams', '+27820001122', 'Support', 'Incoming', 'App crashes on login', 'High', 'In Progress'),
-                    ('David Mokoena', '+27823334455', 'Billing', 'Incoming', 'Refund not received', 'High', 'Open'),
-                    ('Sarah Jacobs', '+27826667788', 'IT', 'Outgoing', 'Scheduled maintenance notification', 'Low', 'Closed'),
-                    ('Pieter Botha', '+27829990011', 'Sales', 'Incoming', 'Demo request for next week', 'Medium', 'Resolved'),
-                    ('Zanele Mthembu', '+27822223344', 'Support', 'Incoming', '2FA setup assistance', 'Medium', 'Open'),
-                    ('Ryan Smith', '+27825556677', 'HR', 'Incoming', 'Payslip access issue', 'Low', 'Pending'),
-                    ('Grace Ndlovu', '+27828889900', 'IT', 'Incoming', 'Email not syncing on mobile', 'High', 'In Progress'),
-                ]
-                now = datetime.utcnow()
-                for i, (name, phone, dept, ctype, reason, pri, status) in enumerate(samples):
-                    db.session.add(CallLog(
-                        CallerName=name, PhoneNumber=phone, Department=dept, CallType=ctype,
-                        ReasonForCall=reason, Priority=pri, Status=status,
-                        AssignedTo=assignees[i % len(assignees)] if assignees else None,
-                        DateLogged=now - timedelta(hours=i * 5),
-                        TimeSpent=30 if status in ('Resolved', 'Closed') else None,
-                        SatisfactionRating=5 if status in ('Resolved', 'Closed') else None,
-                        Resolution='Issue resolved' if status in ('Resolved', 'Closed') else None,
-                    ))
-                created.append(str(len(samples)) + ' sample calls')
-            if created:
-                db.session.commit()
-                return {
-                    'status': 'ok',
-                    'created': created,
-                    'logins': {'admin': 'admin123', 'agent1': 'agent123', 'manager1': 'manager123'},
-                }, 200
-            return {
-                'status': 'ok',
-                'message': 'Already seeded',
-                'logins': {'admin': 'admin123', 'agent1': 'agent123', 'manager1': 'manager123'},
-            }, 200
-        except Exception as e:
-            db.session.rollback()
-            return {'status': 'error', 'message': str(e)}, 500
-
-    # Re-bind exempts after seed/health are defined
-    try:
-        csrf.exempt(health)
-        csrf.exempt(seed_endpoint)
-    except Exception:
-        pass
 
     return app
