@@ -7,8 +7,15 @@
         <p class="page-subtitle">Inbox · triage like a pro</p>
     </div>
     <div class="page-actions">
+        <div class="view-toggle" role="group" aria-label="View mode">
+            <button type="button" class="active" data-view="list" title="List view"><i class="fas fa-list"></i></button>
+            <button type="button" data-view="board" title="Board view"><i class="fas fa-columns"></i></button>
+        </div>
         <button type="button" class="btn btn-ghost btn-sm" data-shortcuts-open title="Keyboard shortcuts">
             <i class="fas fa-keyboard"></i>
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnSaveView" title="Save current filters">
+            <i class="fas fa-bookmark"></i>
         </button>
         <a href="{{ url_for('calls.export_csv', **request.args) }}" class="btn btn-secondary btn-sm">
             <i class="fas fa-download"></i> Export
@@ -30,10 +37,14 @@
 </div>
 {% endif %}
 
+<div class="saved-views" id="savedViews">
+    <span class="sv-label">Views</span>
+</div>
+
 <div class="inbox-meta">
     <span class="meta-stat"><strong>{{ pagination.total if pagination else calls|length }}</strong> total</span>
     <span class="meta-stat"><strong>{{ open_count }}</strong> open (page)</span>
-    <span class="desk-tip"><kbd>?</kbd> shortcuts · click row for preview · <kbd>C</kbd> log call</span>
+    <span class="desk-tip"><kbd>?</kbd> shortcuts · <kbd>B</kbd> board · <kbd>C</kbd> log call</span>
 </div>
 
 <div class="quick-filters">
@@ -94,6 +105,9 @@
     <button type="button" class="btn btn-ghost btn-sm" id="bulkClear">Clear</button>
 </div>
 
+<div class="board-wrap" id="boardWrap" aria-label="Status board"></div>
+
+<div class="inbox-list-wrap" id="inboxListWrap">
 <div class="table-wrap inbox-table">
     <div class="table-responsive">
         <table class="table table-dense">
@@ -116,8 +130,7 @@
                     data-call-id="{{ c.CallID }}"
                     data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}"
                     data-status="{{ c.Status }}"
-                    data-priority="{{ c.Priority }}"
-                    data-logged="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}">
+                    data-priority="{{ c.Priority }}">
                     <td onclick="event.stopPropagation()">
                         <input type="checkbox" class="row-check row-select" value="{{ c.CallID }}">
                     </td>
@@ -192,4 +205,17 @@
     </div>
     {% endif %}
 </div>
+</div>
+
+<script type="application/json" id="boardData">
+[
+{% for c in calls %}
+  {"id": {{ c.CallID }}, "name": {{ c.CallerName|tojson }}, "phone": {{ c.PhoneNumber|tojson }},
+   "status": {{ c.Status|tojson }}, "priority": {{ c.Priority|tojson }},
+   "reason": {{ c.ReasonForCall|tojson }}, "dept": {{ (c.Department or '')|tojson }},
+   "assignee": {{ (c.assignee.FullName if c.assignee else '')|tojson }},
+   "partial": {{ url_for('calls.detail', call_id=c.CallID, partial=1)|tojson }} }{% if not loop.last %},{% endif %}
+{% endfor %}
+]
+</script>
 {% endblock %}
