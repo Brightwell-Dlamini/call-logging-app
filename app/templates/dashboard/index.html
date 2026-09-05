@@ -21,13 +21,13 @@
             <div class="stat-value">{{ stats.total_calls }}</div>
         </div>
     </div>
-    <div class="stat-card">
+    <a href="{{ url_for('calls.list_calls', status='Open') }}" class="stat-card" style="text-decoration:none;color:inherit;">
         <div class="stat-icon amber"><i class="fas fa-folder-open"></i></div>
         <div>
             <div class="stat-label">Open</div>
             <div class="stat-value">{{ stats.open_calls }}</div>
         </div>
-    </div>
+    </a>
     <div class="stat-card">
         <div class="stat-icon green"><i class="fas fa-circle-check"></i></div>
         <div>
@@ -35,13 +35,13 @@
             <div class="stat-value">{{ stats.resolved_today }}</div>
         </div>
     </div>
-    <div class="stat-card">
+    <a href="{{ url_for('calls.list_calls', priority='High') }}" class="stat-card" style="text-decoration:none;color:inherit;">
         <div class="stat-icon rose"><i class="fas fa-triangle-exclamation"></i></div>
         <div>
             <div class="stat-label">High priority</div>
             <div class="stat-value">{{ stats.high_priority }}</div>
         </div>
-    </div>
+    </a>
 </div>
 
 <div class="row g-3 mb-4">
@@ -84,24 +84,24 @@
             </thead>
             <tbody>
                 {% for c in stats.recent_calls %}
-                <tr>
-                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}">#{{ c.CallID }}</a></td>
+                <tr class="inbox-row" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
+                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link" onclick="event.stopPropagation()">#{{ c.CallID }}</a></td>
                     <td class="fw-medium" style="color:var(--cl-text)">{{ c.CallerName }}</td>
                     <td><span class="badge status-{{ c.Status|lower|replace(' ', '-') }}">{{ c.Status }}</span></td>
-                    <td class="priority-{{ c.Priority|lower }}">{{ c.Priority }}</td>
-                    <td>{{ c.DateLogged.strftime('%b %d, %Y · %H:%M') if c.DateLogged else '—' }}</td>
+                    <td><span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span></td>
+                    <td>{{ c.DateLogged.strftime('%b %d · %H:%M') if c.DateLogged else '—' }}</td>
                     <td class="table-actions">
-                        <a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="btn btn-ghost btn-sm btn-icon" title="View">
-                            <i class="fas fa-arrow-right"></i>
-                        </a>
+                        <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
+                            <i class="fas fa-panel-right"></i>
+                        </button>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <td colspan="6">
                         <div class="empty-state">
-                            <div class="empty-icon"><i class="fas fa-phone"></i></div>
-                            <p>No calls yet. Log your first call to get started.</p>
+                            <div class="empty-icon"><i class="fas fa-inbox"></i></div>
+                            <p>No recent calls yet.</p>
                         </div>
                     </td>
                 </tr>
@@ -117,6 +117,7 @@
 const statusData = {{ stats.status_counts | tojson }};
 const dailyData = {{ stats.calls_per_day | tojson }};
 const deptData = {{ stats.dept_counts | tojson }};
+
 const chartDefaults = {
   responsive: true,
   maintainAspectRatio: true,
@@ -127,6 +128,7 @@ const chartDefaults = {
     }
   }
 };
+
 new Chart(document.getElementById('statusChart'), {
     type: 'doughnut',
     data: {
@@ -140,6 +142,7 @@ new Chart(document.getElementById('statusChart'), {
     },
     options: { ...chartDefaults, cutout: '68%' }
 });
+
 new Chart(document.getElementById('dailyChart'), {
     type: 'bar',
     data: {
@@ -157,10 +160,11 @@ new Chart(document.getElementById('dailyChart'), {
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 11 } } },
-        y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 11 } }, grid: { color: '#F1F5F9' } }
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 11 } }, grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--cl-border').trim() || '#F1F5F9' } }
       }
     }
 });
+
 new Chart(document.getElementById('deptChart'), {
     type: 'bar',
     data: {
@@ -178,7 +182,7 @@ new Chart(document.getElementById('deptChart'), {
       indexAxis: 'y',
       plugins: { legend: { display: false } },
       scales: {
-        x: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 11 } }, grid: { color: '#F1F5F9' } },
+        x: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 11 } }, grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--cl-border').trim() || '#F1F5F9' } },
         y: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 11 } } }
       }
     }
