@@ -38,6 +38,9 @@ def create_app(config_name=None):
     limiter.init_app(app)
     csrf.init_app(app)
 
+    from app.jinja_filters import register_filters
+    register_filters(app)
+
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'warning'
     login_manager.session_protection = 'strong'
@@ -98,6 +101,17 @@ def create_app(config_name=None):
 
     @app.route('/seed', methods=['POST', 'GET'])
     def seed_endpoint():
+        # Locked in production unless explicitly enabled
+        is_prod = (
+            os.environ.get('FLASK_ENV') == 'production'
+            or os.environ.get('VERCEL_ENV') == 'production'
+        )
+        if is_prod and os.environ.get('ENABLE_SEED') != '1':
+            return {
+                'status': 'disabled',
+                'message': 'Seed endpoint disabled. Set ENABLE_SEED=1 to allow.',
+            }, 403
+
         from app.models import User, Department, CallLog
         from datetime import datetime, timedelta
         created = []
