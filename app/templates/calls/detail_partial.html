@@ -1,0 +1,63 @@
+<div class="drawer-header">
+    <div>
+        <div class="drawer-title">Call #{{ call.CallID }}</div>
+        <div class="drawer-sub">
+            <span class="badge status-{{ call.Status|lower|replace(' ', '-') }}">{{ call.Status }}</span>
+            <span class="badge badge-{{ call.Priority|lower }}">{{ call.Priority }}</span>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('calls.detail', call_id=call.CallID) }}" class="btn btn-secondary btn-sm" title="Open full page">
+            <i class="fas fa-up-right-from-square"></i>
+        </a>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-close aria-label="Close">
+            <i class="fas fa-xmark"></i>
+        </button>
+    </div>
+</div>
+<div class="drawer-body">
+    <ul class="meta-list">
+        <li><span class="meta-label">Caller</span><span class="meta-value">{{ call.CallerName }}</span></li>
+        <li><span class="meta-label">Phone</span><span class="meta-value">{{ call.PhoneNumber }}</span></li>
+        <li><span class="meta-label">Department</span><span class="meta-value">{{ call.Department or '—' }}</span></li>
+        <li><span class="meta-label">Type</span><span class="meta-value">{{ call.CallType }}</span></li>
+        <li><span class="meta-label">Assigned</span><span class="meta-value">{{ call.assignee.FullName if call.assignee else 'Unassigned' }}</span></li>
+        <li><span class="meta-label">Logged</span><span class="meta-value">{{ call.DateLogged.strftime('%b %d, %Y · %H:%M') if call.DateLogged else '—' }}</span></li>
+    </ul>
+    <div class="mt-3">
+        <div class="form-label">Reason</div>
+        <p class="mb-0" style="color:var(--cl-text-secondary);font-size:0.875rem;">{{ call.ReasonForCall }}</p>
+    </div>
+    {% if call.Resolution %}
+    <div class="mt-3">
+        <div class="form-label">Resolution</div>
+        <p class="mb-0" style="color:var(--cl-text-secondary);font-size:0.875rem;">{{ call.Resolution }}</p>
+    </div>
+    {% endif %}
+    <div class="cl-card mt-4">
+        <div class="cl-card-header">Update status</div>
+        <div class="cl-card-body">
+            <form method="POST" action="{{ url_for('calls.update_call', call_id=call.CallID) }}">
+                {{ update_form.hidden_tag() }}
+                <div class="mb-3">{{ update_form.status.label(class="form-label") }}{{ update_form.status(class="form-select") }}</div>
+                <div class="mb-3">{{ update_form.resolution.label(class="form-label") }}{{ update_form.resolution(class="form-control", rows=2) }}</div>
+                {{ update_form.submit(class="btn btn-primary w-100") }}
+            </form>
+        </div>
+    </div>
+    <div class="cl-card mt-3">
+        <div class="cl-card-header">Activity</div>
+        <div class="cl-card-body">
+            <div class="activity-timeline">
+                {% for a in activities[:8] %}
+                <div class="activity-item">
+                    <div class="activity-meta">{{ a.ActivityDate.strftime('%b %d · %H:%M') }} · {{ a.user.FullName if a.user else 'System' }}</div>
+                    <div class="activity-body"><strong>{{ a.Action }}</strong>{% if a.Details %} — {{ a.Details }}{% endif %}</div>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0" style="font-size:0.875rem;">No activity yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>

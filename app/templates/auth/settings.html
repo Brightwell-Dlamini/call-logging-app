@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">Profile and preferences</p>
+    </div>
+</div>
+<div class="settings-grid">
+    <div class="cl-card">
+        <div class="cl-card-header">Profile</div>
+        <div class="cl-card-body">
+            <div class="settings-profile">
+                <span class="avatar lg">{{ current_user.FullName[0]|upper }}</span>
+                <div>
+                    <div class="fw-semibold" style="color:var(--cl-text);font-size:1rem;">{{ current_user.FullName }}</div>
+                    <div class="text-muted" style="font-size:0.875rem;">@{{ current_user.Username }} · {{ current_user.Email }}</div>
+                    <span class="badge status-pending mt-2">{{ current_user.Role }}</span>
+                </div>
+            </div>
+            <p class="text-muted mt-3 mb-0" style="font-size:0.8125rem;">
+                Profile editing will connect when we wire auth APIs. This is a stable shell for now.
+            </p>
+        </div>
+    </div>
+    <div class="cl-card">
+        <div class="cl-card-header">Appearance</div>
+        <div class="cl-card-body">
+            <div class="settings-row">
+                <div>
+                    <div class="settings-label">Theme</div>
+                    <div class="settings-hint">Light, dark, or match system</div>
+                </div>
+                <div class="theme-seg" role="group" aria-label="Theme">
+                    <button type="button" class="theme-opt" data-theme-set="light">Light</button>
+                    <button type="button" class="theme-opt" data-theme-set="dark">Dark</button>
+                    <button type="button" class="theme-opt" data-theme-set="system">System</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="cl-card">
+        <div class="cl-card-header">Keyboard</div>
+        <div class="cl-card-body">
+            <ul class="meta-list">
+                <li><span class="meta-label">Command palette</span><span class="meta-value"><kbd>⌘</kbd><kbd>K</kbd> / <kbd>Ctrl</kbd><kbd>K</kbd></span></li>
+                <li><span class="meta-label">Close panel</span><span class="meta-value"><kbd>Esc</kbd></span></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
