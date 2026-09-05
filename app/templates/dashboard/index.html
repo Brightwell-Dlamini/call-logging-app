@@ -13,6 +13,14 @@
     </div>
 </div>
 
+{% if stats.open_calls is defined and stats.open_calls > 0 %}
+<div class="crit-banner">
+    <i class="fas fa-headset"></i>
+    <div><strong>{{ stats.open_calls }} open</strong> in queue{% if stats.high_priority %} · <strong>{{ stats.high_priority }}</strong> high priority{% endif %}. Stay on top of SLA.</div>
+    <a href="{{ url_for('calls.list_calls', status='Open') }}" class="btn btn-secondary btn-sm">Open inbox</a>
+</div>
+{% endif %}
+
 <div class="stat-grid">
     <div class="stat-card">
         <div class="stat-icon blue"><i class="fas fa-phone"></i></div>
