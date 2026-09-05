@@ -2,7 +2,7 @@
 REST API endpoints (session-authenticated).
 """
 from datetime import datetime
-from flask import Blueprint, jsonify, request, abort
+from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app import db
@@ -155,7 +155,6 @@ def list_calls_api():
     page, per_page = _page_args()
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
     items = [serialize_call(c) for c in pagination.items]
-    # Keep a top-level list for existing clients; also expose envelope fields.
     resp = jsonify(items)
     resp.headers['X-Total-Count'] = str(pagination.total)
     resp.headers['X-Page'] = str(page)
