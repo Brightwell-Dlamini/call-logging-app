@@ -1,5 +1,5 @@
 /**
- * CallLog Pro – command palette, theme, drawer, utilities
+ * CallLog Pro – command palette, theme, drawer, toasts
  */
 (function () {
   function ready(fn) {
@@ -79,8 +79,7 @@
     if (!c) return;
     if (c.action === 'theme') {
       var modes = ['light', 'dark', 'system'];
-      var cur = currentTheme();
-      applyTheme(modes[(modes.indexOf(cur) + 1) % modes.length]);
+      applyTheme(modes[(modes.indexOf(currentTheme()) + 1) % modes.length]);
       return;
     }
     if (c.href) window.location.href = c.href;
@@ -112,12 +111,33 @@
     if (ov) ov.hidden = true;
   }
 
+  function showToast(cat, msg) {
+    var stack = document.getElementById('toastStack');
+    if (!stack) return;
+    var el = document.createElement('div');
+    el.className = 'cl-toast ' + (cat || 'info');
+    var icon = { success: 'fa-circle-check', danger: 'fa-circle-xmark', warning: 'fa-triangle-exclamation', info: 'fa-circle-info' }[cat] || 'fa-circle-info';
+    el.innerHTML = '<i class="fas ' + icon + ' toast-icon"></i><div class="toast-msg"></div><button type="button" class="toast-close" aria-label="Close">&times;</button>';
+    el.querySelector('.toast-msg').textContent = msg;
+    el.querySelector('.toast-close').addEventListener('click', function () { dismissToast(el); });
+    stack.appendChild(el);
+    setTimeout(function () { dismissToast(el); }, 4500);
+  }
+  function dismissToast(el) {
+    if (!el || !el.parentNode) return;
+    el.classList.add('out');
+    setTimeout(function () { el.remove(); }, 180);
+  }
+  window.clToast = showToast;
+
   ready(function () {
-    document.querySelectorAll('.alert-dismissible').forEach(function (alert) {
-      setTimeout(function () {
-        try { bootstrap.Alert.getOrCreateInstance(alert).close(); } catch (e) {}
-      }, 5000);
-    });
+    var flash = document.getElementById('flashToasts');
+    if (flash) {
+      flash.querySelectorAll('[data-toast-msg]').forEach(function (n) {
+        showToast(n.getAttribute('data-toast-cat'), n.getAttribute('data-toast-msg'));
+      });
+    }
+
     document.querySelectorAll('[data-confirm]').forEach(function (el) {
       el.addEventListener('click', function (e) {
         if (!confirm(el.getAttribute('data-confirm'))) e.preventDefault();
