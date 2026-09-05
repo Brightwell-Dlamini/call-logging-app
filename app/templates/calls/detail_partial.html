@@ -7,7 +7,7 @@
         </div>
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ url_for('calls.detail', call_id=call.CallID) }}" class="btn btn-secondary btn-sm" title="Open full page">
+        <a href="{{ url_for('calls.detail', call_id=call.CallID) }}" class="btn btn-secondary btn-sm" title="Full page">
             <i class="fas fa-up-right-from-square"></i>
         </a>
         <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-close aria-label="Close">
@@ -16,9 +16,25 @@
     </div>
 </div>
 <div class="drawer-body">
+    <div class="customer-360">
+        <div class="c360-head">
+            <span class="c360-avatar">{{ call.CallerName[0]|upper }}</span>
+            <div>
+                <div class="c360-name">{{ call.CallerName }}</div>
+                <div class="c360-phone">{{ call.PhoneNumber }}</div>
+            </div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--cl-text-muted);">Customer 360 · history by number available now; full timeline when DB is persistent</div>
+        <div class="c360-actions">
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('calls.list_calls', search=call.PhoneNumber) }}">
+                <i class="fas fa-clock-rotate-left"></i> History by number
+            </a>
+            <a class="btn btn-ghost btn-sm" href="tel:{{ call.PhoneNumber }}">
+                <i class="fas fa-phone"></i> Call back
+            </a>
+        </div>
+    </div>
     <ul class="meta-list">
-        <li><span class="meta-label">Caller</span><span class="meta-value">{{ call.CallerName }}</span></li>
-        <li><span class="meta-label">Phone</span><span class="meta-value">{{ call.PhoneNumber }}</span></li>
         <li><span class="meta-label">Department</span><span class="meta-value">{{ call.Department or '—' }}</span></li>
         <li><span class="meta-label">Type</span><span class="meta-value">{{ call.CallType }}</span></li>
         <li><span class="meta-label">Assigned</span><span class="meta-value">{{ call.assignee.FullName if call.assignee else 'Unassigned' }}</span></li>
