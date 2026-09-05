@@ -11,6 +11,7 @@ from flask_migrate import Migrate
 from flask_caching import Cache
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 from config import config
 
 db = SQLAlchemy()
@@ -18,6 +19,7 @@ login_manager = LoginManager()
 migrate = Migrate()
 cache = Cache()
 limiter = Limiter(key_func=get_remote_address)
+csrf = CSRFProtect()
 
 
 def create_app(config_name=None):
@@ -28,11 +30,15 @@ def create_app(config_name=None):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
 
+    # Allow AJAX to send token via header (matches desk.js X-CSRFToken)
+    app.config.setdefault('WTF_CSRF_HEADERS', ['X-CSRFToken', 'X-CSRF-Token'])
+
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
     cache.init_app(app)
     limiter.init_app(app)
+    csrf.init_app(app)
 
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'warning'
@@ -53,6 +59,10 @@ def create_app(config_name=None):
     app.register_blueprint(reports_bp, url_prefix='/reports')
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(board_bp)
+
+    # Public / machine endpoints — no CSRF form token required
+    csrf.exempt(app.view_functions.get('health'))
+    csrf.exempt(app.view_functions.get('seed_endpoint'))
 
     @app.errorhandler(404)
     def not_found_error(error):
@@ -242,5 +252,12 @@ def create_app(config_name=None):
         except Exception as e:
             db.session.rollback()
             return {'status': 'error', 'message': str(e)}, 500
+
+    # Re-bind exempts after seed/health are defined
+    try:
+        csrf.exempt(health)
+        csrf.exempt(seed_endpoint)
+    except Exception:
+        pass
 
     return app
