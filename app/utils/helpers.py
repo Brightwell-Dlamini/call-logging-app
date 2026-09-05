@@ -94,6 +94,11 @@ def get_dashboard_stats(user=None):
     ).scalar()
     avg_satisfaction = round(float(avg_sat), 1) if avg_sat is not None else None
 
+    avg_time = db.session.query(func.avg(CallLog.TimeSpent)).filter(
+        CallLog.TimeSpent.isnot(None)
+    ).scalar()
+    avg_handle_mins = round(float(avg_time), 0) if avg_time is not None else None
+
     my_open = 0
     if user is not None and getattr(user, 'UserID', None):
         my_open = CallLog.query.filter(
@@ -156,6 +161,7 @@ def get_dashboard_stats(user=None):
         'sla_breach': sla_breach,
         'sla_warn': sla_warn,
         'avg_satisfaction': avg_satisfaction,
+        'avg_handle_mins': avg_handle_mins,
         'status_counts': status_counts,
         'calls_per_day': calls_per_day,
         'dept_counts': dept_counts,
