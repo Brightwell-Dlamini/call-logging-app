@@ -23,6 +23,7 @@
     <link href="{{ url_for('static', filename='css/pro5.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/board.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/upgrades.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/wave2.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -117,6 +118,16 @@
                 <span class="d-none d-md-inline">Search</span>
                 <kbd class="cmd-hint d-none d-lg-inline">⌘K</kbd>
             </button>
+            <div class="notif-wrap">
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" id="notifBell" title="Activity">
+                <i class="fas fa-bell"></i>
+                <span class="notif-badge" id="notifBadge" hidden>0</span>
+              </button>
+              <div class="notif-panel" id="notifPanel" hidden>
+                <div class="notif-panel-head">Recent activity</div>
+                <div id="notifList"></div>
+              </div>
+            </div>
             <button type="button" class="btn btn-ghost btn-sm btn-icon" data-shortcuts-open title="Keyboard shortcuts">
                 <i class="fas fa-keyboard"></i>
             </button>
@@ -203,6 +214,7 @@
     <script src="{{ url_for('static', filename='js/pro3.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pro4.js') }}"></script>
     <script src="{{ url_for('static', filename='js/upgrades.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/wave2.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
