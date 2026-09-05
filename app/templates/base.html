@@ -15,6 +15,7 @@
     <link href="{{ url_for('static', filename='css/login-toast.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/worldclass.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/pro2.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/pro3.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -31,7 +32,7 @@
     })();
     </script>
 </head>
-<body class="{% if current_user.is_authenticated %}has-sidebar{% else %}is-auth{% endif %}">
+<body class="{% if current_user.is_authenticated %}has-sidebar{% else %}is-auth{% endif %}"{% if current_user.is_authenticated %} data-agent-name="{{ current_user.FullName }}"{% endif %}>
 {% if current_user.is_authenticated %}
 <div class="app-shell">
     <aside class="app-sidebar" id="appSidebar">
@@ -156,6 +157,8 @@
       <div class="shortcut-row"><span>Command palette</span><span class="keys"><kbd>⌘</kbd><kbd>K</kbd></span></div>
       <div class="shortcut-row"><span>Log new call</span><span class="keys"><kbd>C</kbd></span></div>
       <div class="shortcut-row"><span>Toggle board view</span><span class="keys"><kbd>B</kbd></span></div>
+      <div class="shortcut-row"><span>Agent workload</span><span class="keys"><kbd>W</kbd></span></div>
+      <div class="shortcut-row"><span>Toggle density</span><span class="keys"><kbd>D</kbd></span></div>
       <div class="shortcut-row"><span>Focus inbox search</span><span class="keys"><kbd>/</kbd></span></div>
       <div class="shortcut-row"><span>Toggle theme</span><span class="keys"><kbd>T</kbd></span></div>
       <div class="shortcut-row"><span>Keyboard help</span><span class="keys"><kbd>?</kbd></span></div>
@@ -173,6 +176,7 @@
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/desk.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pro2.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pro3.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
