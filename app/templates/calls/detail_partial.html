@@ -21,10 +21,10 @@
             <span class="c360-avatar">{{ call.CallerName[0]|upper }}</span>
             <div>
                 <div class="c360-name">{{ call.CallerName }}</div>
-                <div class="c360-phone">{{ call.PhoneNumber }}</div>
+                <div class="c360-phone">{{ call.PhoneNumber }} <button type="button" class="copy-btn" data-copy="{{ call.PhoneNumber }}" title="Copy"><i class="fas fa-copy"></i></button></div>
             </div>
         </div>
-        <div style="font-size:0.75rem;color:var(--cl-text-muted);">Customer 360 · history by number available now; full timeline when DB is persistent</div>
+        <div style="font-size:0.75rem;color:var(--cl-text-muted);">Customer 360 · history by number available now</div>
         <div class="c360-actions">
             <a class="btn btn-secondary btn-sm" href="{{ url_for('calls.list_calls', search=call.PhoneNumber) }}">
                 <i class="fas fa-clock-rotate-left"></i> History by number
