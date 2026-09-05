@@ -5,9 +5,12 @@ import os
 import sys
 import traceback
 
-# Ensure Vercel uses development config (SQLite in /tmp) unless explicitly set
-if os.environ.get('VERCEL') and not os.environ.get('FLASK_ENV'):
-    os.environ['FLASK_ENV'] = 'development'
+# Prefer production on Vercel when a real DB is configured
+if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'):
+    if os.environ.get('DATABASE_URL') and not os.environ.get('FLASK_ENV'):
+        os.environ['FLASK_ENV'] = 'production'
+    elif not os.environ.get('FLASK_ENV'):
+        os.environ['FLASK_ENV'] = 'development'
 
 try:
     from app import create_app, db
@@ -22,11 +25,10 @@ try:
             'User': User,
             'CallLog': CallLog,
             'CallActivity': CallActivity,
-            'Department': Department
+            'Department': Department,
         }
 
 except Exception:
-    # Surface full traceback in Vercel function logs
     traceback.print_exc(file=sys.stderr)
     raise
 

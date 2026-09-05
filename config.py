@@ -1,6 +1,7 @@
 """
-Application configuration module.
-Supports development (SQLite) and production (MySQL) environments.
+Application configuration.
+- Local: SQLite by default
+- Vercel + DATABASE_URL (Neon): persistent Postgres
 """
 import os
 from datetime import timedelta
@@ -18,14 +19,56 @@ def _default_sqlite_uri():
     )
 
 
+def normalize_database_url(url):
+    """
+    Normalize Neon / Heroku / generic Postgres URLs for SQLAlchemy + psycopg3.
+    """
+    if not url:
+        return None
+    url = url.strip().strip('"').strip("'")
+
+    # heroku/neon legacy scheme
+    if url.startswith('postgres://'):
+        url = 'postgresql://' + url[len('postgres://'):]
+
+    # Use psycopg3 driver (package: psycopg[binary])
+    if url.startswith('postgresql://') and '+psycopg' not in url.split('://', 1)[0]:
+        url = 'postgresql+psycopg://' + url[len('postgresql://'):]
+    elif url.startswith('postgresql+psycopg2://'):
+        url = 'postgresql+psycopg://' + url[len('postgresql+psycopg2://'):]
+
+    # Neon requires SSL; add if missing
+    if 'sslmode=' not in url:
+        join = '&' if '?' in url else '?'
+        url = f'{url}{join}sslmode=require'
+
+    return url
+
+
+def resolve_database_uri():
+    raw = os.environ.get('DATABASE_URL')
+    if raw:
+        return normalize_database_url(raw) or _default_sqlite_uri()
+    return _default_sqlite_uri()
+
+
+def _engine_options():
+    """Serverless-friendly pool settings on Vercel; normal pool elsewhere."""
+    opts = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+    }
+    if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV'):
+        from sqlalchemy.pool import NullPool
+        opts['poolclass'] = NullPool
+    return opts
+
+
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-    }
+    SQLALCHEMY_ENGINE_OPTIONS = _engine_options()
     PERMANENT_SESSION_LIFETIME = timedelta(
         seconds=int(os.environ.get('PERMANENT_SESSION_LIFETIME', 1800))
     )
@@ -40,22 +83,21 @@ class Config:
 
 
 class DevelopmentConfig(Config):
-    """Development configuration using SQLite."""
+    """Development — SQLite or DATABASE_URL if set."""
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or _default_sqlite_uri()
+    SQLALCHEMY_DATABASE_URI = resolve_database_uri()
 
 
 class ProductionConfig(Config):
-    """Production configuration. Uses DATABASE_URL when set, otherwise SQLite."""
+    """Production — prefers DATABASE_URL (Neon). Falls back to SQLite only if unset."""
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or _default_sqlite_uri()
+    SQLALCHEMY_DATABASE_URI = resolve_database_uri()
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
 
 
 class TestingConfig(Config):
-    """Testing configuration."""
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     WTF_CSRF_ENABLED = False
@@ -66,5 +108,5 @@ config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
     'testing': TestingConfig,
-    'default': DevelopmentConfig
+    'default': DevelopmentConfig,
 }
