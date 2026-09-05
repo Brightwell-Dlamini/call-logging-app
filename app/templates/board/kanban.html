@@ -84,9 +84,15 @@
           body: JSON.stringify({ call_id: parseInt(dragId, 10), status })
         });
         const data = await res.json();
-        if (data.ok) location.reload();
-        else alert(data.error || 'Move failed');
-      } catch (err) { alert('Network error'); }
+        if (data.ok) {
+          if (window.clToast) window.clToast('success', 'Moved to ' + status);
+          setTimeout(function(){ location.reload(); }, 400);
+        } else {
+          if (window.clToast) window.clToast('error', data.error || 'Move failed');
+        }
+      } catch (err) {
+        if (window.clToast) window.clToast('error', 'Network error');
+      }
     });
   });
 
@@ -94,13 +100,18 @@
     sel.addEventListener('change', async () => {
       const callId = parseInt(sel.dataset.callId, 10);
       const assigned = sel.value ? parseInt(sel.value, 10) : null;
+      const status = sel.closest('.board-col').dataset.status;
       const res = await fetch('/board/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-        body: JSON.stringify({ call_id: callId, status: sel.closest('.board-col').dataset.status, assigned_to: assigned })
+        body: JSON.stringify({ call_id: callId, status: status, assigned_to: assigned })
       });
       const data = await res.json();
-      if (!data.ok) alert(data.error || 'Assign failed');
+      if (data.ok) {
+        if (window.clToast) window.clToast('success', 'Assignment updated');
+      } else if (window.clToast) {
+        window.clToast('error', data.error || 'Assign failed');
+      }
     });
   });
 })();
