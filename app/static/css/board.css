@@ -4,7 +4,7 @@
   display: flex; gap: 0.75rem; min-width: max-content; padding: 0.25rem;
 }
 .board-col {
-  width: 260px; flex-shrink: 0;
+  width: 280px; flex-shrink: 0;
   background: var(--cl-surface, #fff);
   border: 1px solid var(--cl-border, #e2e8f0);
   border-radius: 12px;
@@ -40,13 +40,21 @@
   cursor: grab;
   transition: box-shadow 0.15s, transform 0.15s;
 }
+.board-card.sla-warn { border-left: 3px solid #F59E0B; }
+.board-card.sla-breach { border-left: 3px solid #EF4444; }
 .board-card:hover { box-shadow: 0 4px 12px rgba(15,23,42,0.08); }
 .board-card.dragging { opacity: 0.55; cursor: grabbing; }
 .board-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; }
 .board-card-name { font-weight: 600; font-size: 0.875rem; color: var(--cl-text, #0f172a); }
 .board-card-meta { font-size: 0.75rem; color: var(--cl-muted, #64748b); margin-top: 0.15rem; }
 .board-card-reason { font-size: 0.75rem; color: var(--cl-muted, #64748b); margin-top: 0.4rem; line-height: 1.35; }
-.board-card-foot { margin-top: 0.5rem; font-size: 0.7rem; color: var(--cl-muted, #64748b); }
+.board-card-foot {
+  margin-top: 0.55rem; display: flex; align-items: center; gap: 0.4rem; justify-content: space-between;
+}
+.board-assign {
+  max-width: 110px; font-size: 0.7rem !important; padding: 0.15rem 0.35rem !important;
+  border-radius: 6px;
+}
 .board-empty { font-size: 0.8rem; color: var(--cl-muted, #94a3b8); text-align: center; padding: 1.5rem 0.5rem; }
 .load-bar {
   height: 8px; background: var(--cl-muted-bg, #f1f5f9); border-radius: 999px; overflow: hidden;
@@ -55,5 +63,16 @@
   display: block; height: 100%; background: var(--cl-accent, #6366f1); border-radius: 999px;
   min-width: 2px;
 }
+.sla-chip {
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 0.15rem 0.4rem; border-radius: 6px;
+}
+.sla-chip.ok { background: #ECFDF5; color: #047857; }
+.sla-chip.warn { background: #FFFBEB; color: #B45309; }
+.sla-chip.breach { background: #FEF2F2; color: #B91C1C; }
+.stat-icon.indigo { background: #EEF2FF; color: #4F46E5; }
 .theme-dark .board-col,
 .theme-dark .board-card { background: var(--cl-surface); }
+.theme-dark .sla-chip.ok { background: #064E3B; color: #6EE7B7; }
+.theme-dark .sla-chip.warn { background: #78350F; color: #FCD34D; }
+.theme-dark .sla-chip.breach { background: #7F1D1D; color: #FCA5A5; }

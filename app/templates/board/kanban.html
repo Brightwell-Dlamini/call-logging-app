@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Board</h1>
-    <p class="page-subtitle">Drag status pipeline · priority-sorted columns</p>
+    <p class="page-subtitle">Drag to change status · assign from the card · SLA chips</p>
   </div>
   <div class="page-actions">
     <a href="{{ url_for('board.my_queue') }}" class="btn btn-secondary btn-sm">My queue</a>
@@ -23,7 +23,8 @@
       </div>
       <div class="board-col-body" data-drop-status="{{ status }}">
         {% for c in cards %}
-        <article class="board-card" draggable="true" data-call-id="{{ c.CallID }}"
+        {% set risk = c|sla_badge %}
+        <article class="board-card sla-{{ risk }}" draggable="true" data-call-id="{{ c.CallID }}"
                  data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
           <div class="board-card-top">
             <a class="call-id-link" href="{{ url_for('calls.detail', call_id=c.CallID) }}" onclick="event.stopPropagation()">#{{ c.CallID }}</a>
@@ -32,9 +33,14 @@
           <div class="board-card-name">{{ c.CallerName }}</div>
           <div class="board-card-meta">{{ c.Department or '—' }} · {{ c.PhoneNumber }}</div>
           <div class="board-card-reason">{{ (c.ReasonForCall or '')[:90] }}{% if c.ReasonForCall and c.ReasonForCall|length > 90 %}…{% endif %}</div>
-          <div class="board-card-foot">
-            <span class="board-assignee">{{ c.assignee.FullName if c.assignee else 'Unassigned' }}</span>
-            {% set hrs = ((now() - c.DateLogged).total_seconds() / 3600) if c.DateLogged else 0 %}
+          <div class="board-card-foot" onclick="event.stopPropagation()">
+            <span class="sla-chip {{ risk }}">{{ risk }}</span>
+            <select class="board-assign form-select form-select-sm" data-call-id="{{ c.CallID }}" title="Assign agent">
+              <option value="">Unassigned</option>
+              {% for a in agents %}
+              <option value="{{ a.UserID }}" {% if c.AssignedTo == a.UserID %}selected{% endif %}>{{ a.FullName.split()[0] }}</option>
+              {% endfor %}
+            </select>
           </div>
         </article>
         {% else %}
@@ -55,6 +61,7 @@
 
   document.querySelectorAll('.board-card').forEach(card => {
     card.addEventListener('dragstart', e => {
+      if (e.target.closest('select')) { e.preventDefault(); return; }
       dragId = card.dataset.callId;
       card.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
@@ -73,18 +80,27 @@
       try {
         const res = await fetch('/board/move', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrf
-          },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
           body: JSON.stringify({ call_id: parseInt(dragId, 10), status })
         });
         const data = await res.json();
         if (data.ok) location.reload();
         else alert(data.error || 'Move failed');
-      } catch (err) {
-        alert('Network error');
-      }
+      } catch (err) { alert('Network error'); }
+    });
+  });
+
+  document.querySelectorAll('.board-assign').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const callId = parseInt(sel.dataset.callId, 10);
+      const assigned = sel.value ? parseInt(sel.value, 10) : null;
+      const res = await fetch('/board/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify({ call_id: callId, status: sel.closest('.board-col').dataset.status, assigned_to: assigned })
+      });
+      const data = await res.json();
+      if (!data.ok) alert(data.error || 'Assign failed');
     });
   });
 })();
