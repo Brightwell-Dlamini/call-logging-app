@@ -11,12 +11,12 @@ Production-style **call logging system** for organisational support desks: triag
 
 ```
 Browser (SPA-like UI)
-    │
-    ▼
+    |
+    v
 Vercel Serverless (Python / run.py entrypoint)
-    │  Flask application factory (app/__init__.py)
-    │  CSRF · Login · Rate limit · RBAC decorators
-    ▼
+    |  Flask application factory (app/__init__.py)
+    |  CSRF · Login · Rate limit · RBAC decorators
+    v
 Neon Postgres (pooler URL, NullPool on Vercel)
     tables: users, call_log, call_activity, departments
 ```
@@ -44,8 +44,27 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - Dashboard charts (status, 7-day volume, department)
 - Reports: daily, monthly, agent, department · Excel & PDF
 - Audit log on status/assign changes
-- REST API under `/api/*`
+- REST API under `/api/*` (session auth; mutating routes need Agent+)
 - `/health` probes DB backend (`postgres` vs `sqlite`)
+
+---
+
+## REST API notes
+
+Session cookie required (same as the web UI). Send CSRF token on POST/PUT/PATCH via `X-CSRFToken`.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/dashboard/stats` | Includes `avg_handle_mins`, SLA counts |
+| GET | `/api/calls` | Optional `status`, `page`, `per_page` (max 100). Array body; `X-Total-Count` header |
+| POST | `/api/calls` | Validates `call_type` and `priority` enums |
+| GET | `/api/calls/<id>` | JSON 404 `{ok:false,error}` if missing |
+| PATCH | `/api/calls/<id>` | Status / priority / assign / resolution |
+| POST | `/api/calls/<id>/quick` | `claim` \| `resolve` \| `escalate` |
+| GET | `/api/search?q=` | Calls + users |
+| GET | `/api/phone-lookup?phone=` | Recent matches |
+
+Error shape: `{ "ok": false, "error": "..." }` plus optional `missing` / `allowed`.
 
 ---
 
@@ -96,7 +115,7 @@ pip install pytest
 pytest tests/ -v
 ```
 
-Covers health, login, create call, bulk status, API stats.
+Covers health, login, create call, bulk status, API stats, API validation and JSON 404s.
 
 ---
 
