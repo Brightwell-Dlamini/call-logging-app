@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Calls{% endblock %}
 {% block content %}
+{% set today = namespace.utcnow().strftime('%Y-%m-%d') %}
+{% set week_ago = (namespace.utcnow() - namespace.timedelta(days=7)).strftime('%Y-%m-%d') if false else '' %}
 <div class="page-header">
     <div>
         <h1 class="page-title">Calls</h1>
@@ -16,12 +18,6 @@
             <button type="button" data-density="comfortable" title="Comfortable">Cozy</button>
             <button type="button" data-density="compact" title="Compact">Dense</button>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" data-shortcuts-open title="Keyboard shortcuts">
-            <i class="fas fa-keyboard"></i>
-        </button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btnSaveView" title="Save current filters">
-            <i class="fas fa-bookmark"></i>
-        </button>
         <a href="{{ url_for('calls.export_csv', **request.args) }}" class="btn btn-secondary btn-sm">
             <i class="fas fa-download"></i> Export
         </a>
@@ -37,38 +33,38 @@
 {% if crit_count > 0 %}
 <div class="crit-banner">
     <i class="fas fa-bolt"></i>
-    <div><strong>{{ crit_count }} critical</strong> call{{ 's' if crit_count != 1 else '' }} on this page need attention.</div>
+    <div><strong>{{ crit_count }} critical</strong> on this page need attention.</div>
     <a href="{{ url_for('calls.list_calls', priority='Critical') }}" class="btn btn-secondary btn-sm">Filter critical</a>
 </div>
 {% endif %}
 
-<div class="saved-views" id="savedViews">
-    <span class="sv-label">Views</span>
+<div class="preset-chips">
+    <a href="{{ url_for('calls.list_calls') }}">All</a>
+    <a href="{{ url_for('calls.list_calls', assigned_to=current_user.UserID) }}">Mine</a>
+    <a href="{{ url_for('calls.list_calls', unassigned=1) }}">Unassigned</a>
+    <a href="{{ url_for('calls.list_calls', priority='Critical') }}">Critical</a>
+    <a href="{{ url_for('calls.list_calls', sort='priority', status='Open') }}">Open by priority</a>
+    <a href="{{ url_for('calls.list_calls', status='In Progress') }}">In progress</a>
 </div>
+
+<div class="saved-views" id="savedViews"><span class="sv-label">Views</span></div>
 
 <div class="inbox-meta">
     <span class="meta-stat"><strong>{{ pagination.total if pagination else calls|length }}</strong> total</span>
     <span class="meta-stat"><strong>{{ open_count }}</strong> open (page)</span>
-    <span class="desk-tip"><kbd>J</kbd>/<kbd>K</kbd> navigate · <kbd>Enter</kbd> preview · right-click actions</span>
+    <span class="desk-tip"><kbd>J</kbd>/<kbd>K</kbd> navigate · <kbd>Enter</kbd> preview</span>
 </div>
 
 <div class="quick-filters">
     {% set st = request.args.get('status', '') %}
     <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st and not request.args.get('priority') and not request.args.get('assigned_to') and not request.args.get('unassigned') %}active{% endif %}">All</a>
     {% for s in ['Open','In Progress','Pending','Resolved','Closed'] %}
-    <a href="{{ url_for('calls.list_calls', status=s, search=request.args.get('search',''), priority=request.args.get('priority',''), department=request.args.get('department','')) }}"
-       class="chip {% if st == s %}active{% endif %}">{{ s }}</a>
+    <a href="{{ url_for('calls.list_calls', status=s) }}" class="chip {% if st == s %}active{% endif %}">{{ s }}</a>
     {% endfor %}
-    <a href="{{ url_for('calls.list_calls', priority='Critical') }}" class="chip {% if request.args.get('priority') == 'Critical' %}active{% endif %}">
-        <span class="urgency-dot critical" style="margin-right:4px"></span> Critical
-    </a>
-    <a href="{{ url_for('calls.list_calls', assigned_to=current_user.UserID) }}" class="chip {% if request.args.get('assigned_to')|string == current_user.UserID|string %}active{% endif %}">
-        <i class="fas fa-user" style="font-size:0.65rem;margin-right:4px"></i> Assigned to me
-    </a>
+    <a href="{{ url_for('calls.list_calls', priority='Critical') }}" class="chip {% if request.args.get('priority') == 'Critical' %}active{% endif %}">Critical</a>
+    <a href="{{ url_for('calls.list_calls', assigned_to=current_user.UserID) }}" class="chip {% if request.args.get('assigned_to')|string == current_user.UserID|string %}active{% endif %}">Assigned to me</a>
     <a href="{{ url_for('calls.list_calls', unassigned=1) }}" class="chip {% if request.args.get('unassigned') %}active{% endif %}">Unassigned</a>
 </div>
-
-<div class="filter-pills" id="filterPills"></div>
 
 <div class="filter-bar">
     <form method="GET" class="row align-items-end g-2">
@@ -128,8 +124,9 @@
 
 <div class="bulk-bar" id="bulkBar">
     <div class="bulk-count"><span id="bulkCount">0</span> selected</div>
-    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="progress">Mark In Progress</button>
-    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="resolve">Mark Resolved</button>
+    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="claim">Claim for me</button>
+    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="progress">In Progress</button>
+    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="resolve">Resolve</button>
     <button type="button" class="btn btn-ghost btn-sm" id="bulkClear">Clear</button>
 </div>
 
