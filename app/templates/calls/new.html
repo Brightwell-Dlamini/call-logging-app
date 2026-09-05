@@ -8,54 +8,122 @@
     </div>
 </div>
 
-<div style="max-width:720px;">
-    <div class="cl-card">
-        <div class="cl-card-body">
-            <form method="POST" novalidate>
-                {{ form.hidden_tag() }}
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        {{ form.caller_name.label(class="form-label") }}
-                        {{ form.caller_name(class="form-control" + (" is-invalid" if form.caller_name.errors else ""), placeholder="Full name") }}
-                        {% for e in form.caller_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                    </div>
-                    <div class="col-md-6">
-                        {{ form.phone_number.label(class="form-label") }}
-                        {{ form.phone_number(class="form-control" + (" is-invalid" if form.phone_number.errors else ""), placeholder="+27…") }}
-                        {% for e in form.phone_number.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                    </div>
-                    <div class="col-md-4">
-                        {{ form.department.label(class="form-label") }}
-                        {{ form.department(class="form-select") }}
-                    </div>
-                    <div class="col-md-4">
-                        {{ form.call_type.label(class="form-label") }}
-                        {{ form.call_type(class="form-select") }}
-                    </div>
-                    <div class="col-md-4">
-                        {{ form.priority.label(class="form-label") }}
-                        {{ form.priority(class="form-select") }}
-                    </div>
-                    <div class="col-12">
-                        {{ form.reason_for_call.label(class="form-label") }}
-                        {{ form.reason_for_call(class="form-control" + (" is-invalid" if form.reason_for_call.errors else ""), rows=3, placeholder="Why did they call?") }}
-                        {% for e in form.reason_for_call.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-                    </div>
-                    <div class="col-md-6">
-                        {{ form.assigned_to.label(class="form-label") }}
-                        {{ form.assigned_to(class="form-select") }}
-                    </div>
-                    <div class="col-12">
-                        {{ form.notes.label(class="form-label") }}
-                        {{ form.notes(class="form-control", rows=2, placeholder="Optional internal notes") }}
-                    </div>
-                    <div class="col-12 d-flex gap-2 pt-2">
-                        {{ form.submit(class="btn btn-primary") }}
-                        <a href="{{ url_for('calls.list_calls') }}" class="btn btn-secondary">Cancel</a>
+<form method="POST" novalidate id="logCallForm">
+    {{ form.hidden_tag() }}
+    <div class="log-layout">
+        <div>
+            <div class="cl-card mb-3">
+                <div class="cl-card-header">Caller</div>
+                <div class="cl-card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ form.caller_name.label(class="form-label") }}
+                            {{ form.caller_name(class="form-control" + (" is-invalid" if form.caller_name.errors else ""), placeholder="Full name", autofocus=true) }}
+                            {% for e in form.caller_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.phone_number.label(class="form-label") }}
+                            {{ form.phone_number(class="form-control" + (" is-invalid" if form.phone_number.errors else ""), placeholder="+27…") }}
+                            {% for e in form.phone_number.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
                     </div>
                 </div>
-            </form>
+            </div>
+
+            <div class="cl-card mb-3">
+                <div class="cl-card-header">Direction</div>
+                <div class="cl-card-body">
+                    <div class="choice-grid" id="typeChoices">
+                        <button type="button" class="choice-card" data-type="Incoming">
+                            Incoming
+                            <span class="choice-sub">Customer called us</span>
+                        </button>
+                        <button type="button" class="choice-card" data-type="Outgoing">
+                            Outgoing
+                            <span class="choice-sub">We called the customer</span>
+                        </button>
+                    </div>
+                    <div class="d-none">{{ form.call_type(id="callTypeSelect") }}</div>
+                </div>
+            </div>
+
+            <div class="cl-card mb-3">
+                <div class="cl-card-header">Priority</div>
+                <div class="cl-card-body">
+                    <div class="priority-grid" id="prioChoices">
+                        {% for p in ['Low','Medium','High','Critical'] %}
+                        <button type="button" class="prio-card {{ p|lower }}" data-prio="{{ p }}">{{ p }}</button>
+                        {% endfor %}
+                    </div>
+                    <div class="d-none">{{ form.priority(id="prioritySelect") }}</div>
+                </div>
+            </div>
+
+            <div class="cl-card mb-3">
+                <div class="cl-card-header">Details</div>
+                <div class="cl-card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ form.department.label(class="form-label") }}
+                            {{ form.department(class="form-select") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.assigned_to.label(class="form-label") }}
+                            {{ form.assigned_to(class="form-select") }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.reason_for_call.label(class="form-label") }}
+                            {{ form.reason_for_call(class="form-control" + (" is-invalid" if form.reason_for_call.errors else ""), rows=4, placeholder="What was the call about?") }}
+                            {% for e in form.reason_for_call.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
+                            {{ form.notes.label(class="form-label") }}
+                            {{ form.notes(class="form-control", rows=2, placeholder="Optional internal notes") }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                {{ form.submit(class="btn btn-primary") }}
+                <a href="{{ url_for('calls.list_calls') }}" class="btn btn-secondary">Cancel</a>
+            </div>
         </div>
+
+        <aside class="cl-card log-side-card">
+            <div class="cl-card-header">Tips</div>
+            <div class="cl-card-body">
+                <ul class="hint-list">
+                    <li><i class="fas fa-bolt"></i><span>Mark <strong>Critical</strong> only when SLA is under 2 hours.</span></li>
+                    <li><i class="fas fa-user"></i><span>Assign now so the workload board stays accurate.</span></li>
+                    <li><i class="fas fa-phone"></i><span>Use a consistent phone format for history matching.</span></li>
+                </ul>
+            </div>
+        </aside>
     </div>
-</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  function syncType(){
+    var sel = document.getElementById('callTypeSelect');
+    if(!sel) return;
+    document.querySelectorAll('#typeChoices .choice-card').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-type') === sel.value);
+      b.onclick = function(){ sel.value = b.getAttribute('data-type'); syncType(); };
+    });
+  }
+  function syncPrio(){
+    var sel = document.getElementById('prioritySelect');
+    if(!sel) return;
+    document.querySelectorAll('#prioChoices .prio-card').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-prio') === sel.value);
+      b.onclick = function(){ sel.value = b.getAttribute('data-prio'); syncPrio(); };
+    });
+  }
+  syncType(); syncPrio();
+})();
+</script>
 {% endblock %}
