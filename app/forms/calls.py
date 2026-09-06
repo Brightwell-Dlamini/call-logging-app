@@ -2,7 +2,7 @@
 from flask_wtf import FlaskForm
 from wtforms import (
     StringField, TextAreaField, SelectField, SubmitField,
-    IntegerField, HiddenField
+    IntegerField, DateTimeLocalField, SelectMultipleField
 )
 from wtforms.validators import DataRequired, Length, Optional, NumberRange
 
@@ -47,6 +47,16 @@ class CallLogForm(FlaskForm):
         coerce=int,
         validators=[Optional()]
     )
+    tags = SelectMultipleField(
+        'Tags',
+        coerce=int,
+        validators=[Optional()]
+    )
+    follow_up_date = DateTimeLocalField(
+        'Follow-up Date',
+        format='%Y-%m-%dT%H:%M',
+        validators=[Optional()]
+    )
     notes = TextAreaField('Notes', validators=[Optional()])
     submit = SubmitField('Log Call')
 
@@ -82,6 +92,16 @@ class CallUpdateForm(FlaskForm):
         validators=[Optional()],
         coerce=lambda x: int(x) if x else None
     )
+    follow_up_date = DateTimeLocalField(
+        'Follow-up Date',
+        format='%Y-%m-%dT%H:%M',
+        validators=[Optional()]
+    )
+    tags = SelectMultipleField(
+        'Tags',
+        coerce=int,
+        validators=[Optional()]
+    )
     submit = SubmitField('Update Call')
 
 
@@ -90,6 +110,11 @@ class NoteForm(FlaskForm):
     note = TextAreaField(
         'Add Note',
         validators=[DataRequired(), Length(min=3)]
+    )
+    canned_id = SelectField(
+        'Insert Canned Response',
+        coerce=int,
+        validators=[Optional()]
     )
     submit = SubmitField('Add Note')
 
