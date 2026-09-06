@@ -26,6 +26,18 @@
     </div>
 </div>
 
+{% if related_open %}
+<div class="dup-open-banner">
+  <i class="fas fa-triangle-exclamation"></i>
+  <div>
+    <strong>{{ related_open|length }} other open call{{ 's' if related_open|length != 1 else '' }}</strong> from this number:
+    {% for r in related_open %}
+      <a href="{{ url_for('calls.detail', call_id=r.CallID) }}">#{{ r.CallID }}</a>{% if not loop.last %}, {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="detail-grid">
     <div>
         <div class="cl-card mb-3">

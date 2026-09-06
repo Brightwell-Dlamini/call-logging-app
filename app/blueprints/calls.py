@@ -188,6 +188,11 @@ def detail(call_id):
         CallLog.PhoneNumber == call.PhoneNumber,
         CallLog.CallID != call.CallID
     ).count()
+    related_open = CallLog.query.filter(
+        CallLog.PhoneNumber == call.PhoneNumber,
+        CallLog.CallID != call.CallID,
+        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+    ).order_by(CallLog.DateLogged.desc()).limit(5).all()
 
     ctx = dict(
         call=call,
@@ -196,6 +201,7 @@ def detail(call_id):
         assign_form=assign_form,
         activities=activities,
         related_count=related_count,
+        related_open=related_open,
         title=f'Call #{call.CallID}'
     )
     if request.args.get('partial') == '1' or request.headers.get('X-Partial') == '1':
@@ -303,7 +309,6 @@ def bulk_update():
     ids = ids[:100]
     calls_q = CallLog.query.filter(CallLog.CallID.in_(ids)).all()
 
-    # Bulk assign
     if action in ('assign', 'claim'):
         if action == 'claim':
             agent_id = current_user.UserID
