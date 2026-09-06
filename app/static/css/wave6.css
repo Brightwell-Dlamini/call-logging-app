@@ -1,0 +1,60 @@
+/* Wave 6 */
+body.sidebar-collapsed .app-sidebar {
+  width: 64px;
+}
+body.sidebar-collapsed .app-sidebar .brand-text,
+body.sidebar-collapsed .app-sidebar .nav-section-label,
+body.sidebar-collapsed .app-sidebar .nav-item span,
+body.sidebar-collapsed .app-sidebar .user-meta,
+body.sidebar-collapsed .app-sidebar .health-badge {
+  display: none !important;
+}
+body.sidebar-collapsed .app-sidebar .nav-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+body.sidebar-collapsed .app-content {
+  margin-left: 64px;
+}
+@media (max-width: 900px) {
+  body.sidebar-collapsed .app-content { margin-left: 0; }
+}
+#sidebarCollapse {
+  margin-left: 0.25rem;
+}
+.phone-history {
+  margin-top: 0.75rem;
+  border: 1px solid var(--cl-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: var(--cl-surface-2, #f8fafc);
+}
+.ph-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cl-muted, #94a3b8);
+  margin-bottom: 0.4rem;
+}
+.ph-row {
+  display: block;
+  padding: 0.4rem 0.35rem;
+  border-radius: 6px;
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.8rem;
+}
+.ph-row:hover { background: color-mix(in srgb, var(--cl-accent, #6366f1) 8%, transparent); }
+.ph-id { font-weight: 600; margin-right: 0.35rem; color: var(--cl-accent, #6366f1); }
+.ph-meta { color: var(--cl-muted, #94a3b8); font-size: 0.72rem; }
+.ph-reason { display: block; color: var(--cl-text-secondary, #64748b); margin-top: 0.1rem; }
+.ph-empty { font-size: 0.8rem; color: var(--cl-muted, #94a3b8); }
+@media print {
+  .app-sidebar, .content-topbar, .mobile-fab, .quick-actions, .no-print,
+  .bulk-bar, .filter-bar, .preset-chips, .cmd-overlay, .drawer-overlay {
+    display: none !important;
+  }
+  .app-content, .app-main { margin: 0 !important; padding: 0 !important; }
+}
