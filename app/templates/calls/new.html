@@ -8,6 +8,8 @@
     </div>
 </div>
 
+<div id="recentCallers" class="recent-callers" hidden></div>
+
 <form method="POST" novalidate id="logCallForm">
     {{ form.hidden_tag() }}
     <div class="log-layout">
@@ -98,6 +100,7 @@
                     <li><i class="fas fa-bolt"></i><span>Mark <strong>Critical</strong> only when SLA is under 2 hours.</span></li>
                     <li><i class="fas fa-user"></i><span>Assign now so the workload board stays accurate.</span></li>
                     <li><i class="fas fa-clock-rotate-left"></i><span>Enter phone number to surface prior tickets automatically.</span></li>
+                    <li><i class="fas fa-clock"></i><span>Recent callers appear as chips after you log a few calls.</span></li>
                 </ul>
             </div>
         </aside>

@@ -10,6 +10,9 @@
         <label class="auto-refresh-wrap" title="Reload inbox every 60s">
             <input type="checkbox" id="autoRefreshToggle"> Auto
         </label>
+        <label class="chime-wrap" title="Soft chime when critical calls are on screen">
+            <input type="checkbox" id="criticalChimeToggle"> Chime
+        </label>
         <div class="view-toggle" role="group" aria-label="View mode">
             <button type="button" class="active" data-view="list" title="List view"><i class="fas fa-list"></i></button>
             <button type="button" data-view="board" title="Status board"><i class="fas fa-columns"></i></button>
@@ -19,6 +22,9 @@
             <button type="button" data-density="comfortable" title="Comfortable">Cozy</button>
             <button type="button" data-density="compact" title="Compact">Dense</button>
         </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="toggleFilters" title="Toggle filters">
+            <i class="fas fa-filter"></i>
+        </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btnClaimNext" title="Claim next (N)">
             <i class="fas fa-hand"></i> Claim next
         </button>
@@ -33,6 +39,8 @@
         </a>
     </div>
 </div>
+
+<div id="shiftSummary" class="shift-summary" hidden></div>
 
 {% set crit_count = calls|selectattr('Priority', 'equalto', 'Critical')|list|length %}
 {% set open_count = calls|selectattr('Status', 'equalto', 'Open')|list|length %}
@@ -61,7 +69,7 @@
 <div class="inbox-meta">
     <span class="meta-stat"><strong>{{ pagination.total if pagination else calls|length }}</strong> total</span>
     <span class="meta-stat"><strong>{{ open_count }}</strong> open (page)</span>
-    <span class="desk-tip"><kbd>J</kbd>/<kbd>K</kbd> · <kbd>A</kbd> claim · <kbd>N</kbd> next · <kbd>E</kbd> escalate · <kbd>R</kbd> resolve · <kbd>S</kbd> star</span>
+    <span class="desk-tip"><kbd>J</kbd>/<kbd>K</kbd> · <kbd>A</kbd> claim · <kbd>N</kbd> next · <kbd>E</kbd> escalate · <kbd>P</kbd> pending · <kbd>R</kbd> resolve · <kbd>S</kbd> star</span>
 </div>
 
 <div class="quick-filters">
@@ -135,6 +143,7 @@
     <div class="bulk-count"><span id="bulkCount">0</span> selected</div>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="claim">Claim for me</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="progress">In Progress</button>
+    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="pending">Pending</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="resolve">Resolve</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="escalate">Escalate</button>
     <button type="button" class="btn btn-ghost btn-sm" id="bulkClear">Clear</button>
