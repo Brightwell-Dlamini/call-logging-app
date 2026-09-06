@@ -31,6 +31,7 @@
     <link href="{{ url_for('static', filename='css/wave6.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave7.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave8.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/wave9.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -51,6 +52,7 @@
     </script>
 </head>
 <body class="{% if current_user.is_authenticated %}has-sidebar{% else %}is-auth{% endif %}"{% if current_user.is_authenticated %} data-agent-name="{{ current_user.FullName }}"{% endif %}>
+<a class="skip-link" href="#mainContent">Skip to content</a>
 {% if current_user.is_authenticated %}
 <div class="app-shell">
     <aside class="app-sidebar" id="appSidebar">
@@ -160,9 +162,9 @@
                 <i class="fas fa-plus"></i> Log call
             </a>
         </header>
-        <main class="app-main">
+        <main class="app-main" id="mainContent">
 {% else %}
-        <main class="app-main auth-only">
+        <main class="app-main auth-only" id="mainContent">
 {% endif %}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -211,6 +213,7 @@
       <div class="shortcut-row"><span>Focus mode</span><span class="keys"><kbd>F</kbd></span></div>
       <div class="shortcut-row"><span>Claim focused row</span><span class="keys"><kbd>A</kbd></span></div>
       <div class="shortcut-row"><span>Claim next unassigned</span><span class="keys"><kbd>N</kbd></span></div>
+      <div class="shortcut-row"><span>Escalate focused row</span><span class="keys"><kbd>E</kbd></span></div>
       <div class="shortcut-row"><span>Resolve focused row</span><span class="keys"><kbd>R</kbd></span></div>
       <div class="shortcut-row"><span>Star focused row</span><span class="keys"><kbd>S</kbd></span></div>
       <div class="shortcut-row"><span>Toggle density</span><span class="keys"><kbd>D</kbd></span></div>
@@ -248,6 +251,7 @@
     <script src="{{ url_for('static', filename='js/wave6.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave7.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave8.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/wave9.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
