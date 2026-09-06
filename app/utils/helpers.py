@@ -4,7 +4,7 @@ Helper utilities for activity logging, stats, and common operations.
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from app import db
-from app.models import CallLog, CallActivity, User
+from app.models import CallLog, CallActivity, User, Tag
 
 
 def log_activity(call_id: int, user_id: int, action: str, details: str = None) -> CallActivity:
@@ -65,6 +65,7 @@ def get_recent_activity(limit=12):
 
 def get_dashboard_stats(user=None):
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    now = datetime.utcnow()
 
     total_calls = CallLog.query.count()
     open_calls = CallLog.query.filter(
@@ -89,6 +90,13 @@ def get_dashboard_stats(user=None):
     sla_breach = sum(1 for c in open_q if sla_risk(c) == 'breach')
     sla_warn = sum(1 for c in open_q if sla_risk(c) == 'warn')
 
+    # Overdue follow-ups
+    overdue_followups = CallLog.query.filter(
+        CallLog.FollowUpDate.isnot(None),
+        CallLog.FollowUpDate < now,
+        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+    ).count()
+
     avg_sat = db.session.query(func.avg(CallLog.SatisfactionRating)).filter(
         CallLog.SatisfactionRating.isnot(None)
     ).scalar()
@@ -100,9 +108,16 @@ def get_dashboard_stats(user=None):
     avg_handle_mins = round(float(avg_time), 0) if avg_time is not None else None
 
     my_open = 0
+    my_overdue = 0
     if user is not None and getattr(user, 'UserID', None):
         my_open = CallLog.query.filter(
             CallLog.AssignedTo == user.UserID,
+            CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        ).count()
+        my_overdue = CallLog.query.filter(
+            CallLog.AssignedTo == user.UserID,
+            CallLog.FollowUpDate.isnot(None),
+            CallLog.FollowUpDate < now,
             CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
         ).count()
 
@@ -132,6 +147,23 @@ def get_dashboard_stats(user=None):
         .all()
     )
 
+    # Tag usage (top 8)
+    try:
+        tag_rows = (
+            db.session.query(Tag.Name, Tag.Colour, func.count(CallLog.CallID))
+            .join(CallLog.tags)
+            .group_by(Tag.TagID, Tag.Name, Tag.Colour)
+            .order_by(func.count(CallLog.CallID).desc())
+            .limit(8)
+            .all()
+        )
+        tag_counts = [
+            {'name': name, 'colour': colour, 'count': cnt}
+            for name, colour, cnt in tag_rows
+        ]
+    except Exception:
+        tag_counts = []
+
     workload_rows = (
         db.session.query(User.UserID, User.FullName, func.count(CallLog.CallID))
         .outerjoin(
@@ -158,6 +190,8 @@ def get_dashboard_stats(user=None):
         'high_priority': high_priority,
         'unassigned': unassigned,
         'my_open': my_open,
+        'my_overdue': my_overdue,
+        'overdue_followups': overdue_followups,
         'sla_breach': sla_breach,
         'sla_warn': sla_warn,
         'avg_satisfaction': avg_satisfaction,
@@ -165,6 +199,7 @@ def get_dashboard_stats(user=None):
         'status_counts': status_counts,
         'calls_per_day': calls_per_day,
         'dept_counts': dept_counts,
+        'tag_counts': tag_counts,
         'workload': workload,
         'recent_calls': recent_calls,
         'recent_activity': get_recent_activity(10),
