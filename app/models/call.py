@@ -3,6 +3,7 @@ Call Log and Call Activity models.
 """
 from datetime import datetime
 from app import db
+from app.models.tag import call_tags
 
 
 class CallLog(db.Model):
@@ -15,6 +16,7 @@ class CallLog(db.Model):
         db.Index('ix_call_log_status_datelogged', 'Status', 'DateLogged'),
         db.Index('ix_call_log_assigned_status', 'AssignedTo', 'Status'),
         db.Index('ix_call_log_dept_status', 'Department', 'Status'),
+        db.Index('ix_call_log_followup', 'FollowUpDate'),
     )
 
     CallID = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -55,6 +57,7 @@ class CallLog(db.Model):
     Resolution = db.Column(db.Text, nullable=True)
     TimeSpent = db.Column(db.Integer, nullable=True)  # minutes
     SatisfactionRating = db.Column(db.Integer, nullable=True)  # 1-5
+    FollowUpDate = db.Column(db.DateTime, nullable=True)  # next action due
 
     # Relationships
     assignee = db.relationship(
@@ -69,9 +72,21 @@ class CallLog(db.Model):
         cascade='all, delete-orphan',
         order_by='CallActivity.ActivityDate.desc()'
     )
+    tags = db.relationship(
+        'Tag',
+        secondary=call_tags,
+        back_populates='calls',
+        lazy='joined',
+    )
 
     def __repr__(self) -> str:
         return f'<CallLog {self.CallID}: {self.CallerName} [{self.Status}]>'
+
+    @property
+    def is_overdue(self) -> bool:
+        if not self.FollowUpDate or self.Status in ('Resolved', 'Closed'):
+            return False
+        return self.FollowUpDate < datetime.utcnow()
 
 
 class CallActivity(db.Model):
