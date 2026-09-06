@@ -61,6 +61,7 @@
     <a href="{{ url_for('calls.list_calls', assigned_to=current_user.UserID) }}">Mine</a>
     <a href="{{ url_for('calls.list_calls', unassigned=1) }}">Unassigned</a>
     <a href="{{ url_for('calls.list_calls', priority='Critical') }}">Critical</a>
+    <a href="{{ url_for('calls.list_calls', overdue=1) }}">Overdue follow-ups</a>
     <a href="{{ url_for('calls.list_calls', sort='priority', status='Open') }}">Open by priority</a>
     <a href="{{ url_for('calls.list_calls', status='In Progress') }}">In progress</a>
     <a href="#" id="presetToday">Today</a>
@@ -77,14 +78,24 @@
 
 <div class="quick-filters">
     {% set st = request.args.get('status', '') %}
-    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st and not request.args.get('priority') and not request.args.get('assigned_to') and not request.args.get('unassigned') %}active{% endif %}">All</a>
+    <a href="{{ url_for('calls.list_calls') }}" class="chip {% if not st and not request.args.get('priority') and not request.args.get('assigned_to') and not request.args.get('unassigned') and not request.args.get('overdue') and not request.args.get('tag') %}active{% endif %}">All</a>
     {% for s in ['Open','In Progress','Pending','Resolved','Closed'] %}
     <a href="{{ url_for('calls.list_calls', status=s) }}" class="chip {% if st == s %}active{% endif %}">{{ s }}</a>
     {% endfor %}
     <a href="{{ url_for('calls.list_calls', priority='Critical') }}" class="chip {% if request.args.get('priority') == 'Critical' %}active{% endif %}">Critical</a>
     <a href="{{ url_for('calls.list_calls', assigned_to=current_user.UserID) }}" class="chip {% if request.args.get('assigned_to')|string == current_user.UserID|string %}active{% endif %}">Assigned to me</a>
     <a href="{{ url_for('calls.list_calls', unassigned=1) }}" class="chip {% if request.args.get('unassigned') %}active{% endif %}">Unassigned</a>
+    <a href="{{ url_for('calls.list_calls', overdue=1) }}" class="chip {% if request.args.get('overdue') %}active{% endif %}">Overdue</a>
 </div>
+
+{% if tags %}
+<div class="quick-filters mt-1">
+    <span class="text-muted me-1" style="font-size:0.75rem;">Tags:</span>
+    {% for t in tags %}
+    <a href="{{ url_for('calls.list_calls', tag=t.TagID) }}" class="chip {% if request.args.get('tag')|string == t.TagID|string %}active{% endif %}" style="{% if request.args.get('tag')|string == t.TagID|string %}background:{{ t.Colour }};color:#fff;border-color:{{ t.Colour }}{% endif %}">{{ t.Name }}</a>
+    {% endfor %}
+</div>
+{% endif %}
 
 <div class="filter-bar">
     <form method="GET" class="row align-items-end g-2">
@@ -110,22 +121,33 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-1">
+            <label class="form-label">Tag</label>
+            <select name="tag" class="form-select">
+                <option value="">All</option>
+                {% for t in tags %}
+                <option value="{{ t.TagID }}" {% if request.args.get('tag')|string == t.TagID|string %}selected{% endif %}>{{ t.Name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-1">
             <label class="form-label">From</label>
             <input type="date" name="date_from" value="{{ request.args.get('date_from', '') }}" class="form-control" id="dateFrom">
         </div>
-        <div class="col-md-2">
+        <div class="col-md-1">
             <label class="form-label">To</label>
             <input type="date" name="date_to" value="{{ request.args.get('date_to', '') }}" class="form-control" id="dateTo">
         </div>
         <input type="hidden" name="status" value="{{ request.args.get('status', '') }}">
         {% if request.args.get('unassigned') %}<input type="hidden" name="unassigned" value="1">{% endif %}
+        {% if request.args.get('overdue') %}<input type="hidden" name="overdue" value="1">{% endif %}
         <div class="col-md-1">
             <label class="form-label">Sort</label>
             <select name="sort" class="form-select">
                 <option value="date_desc" {% if request.args.get('sort', 'date_desc') == 'date_desc' %}selected{% endif %}>Newest</option>
                 <option value="priority" {% if request.args.get('sort') == 'priority' %}selected{% endif %}>Priority</option>
                 <option value="status" {% if request.args.get('sort') == 'status' %}selected{% endif %}>Status</option>
+                <option value="followup" {% if request.args.get('sort') == 'followup' %}selected{% endif %}>Follow-up</option>
             </select>
         </div>
         <div class="col-md-1">
@@ -170,6 +192,7 @@
                     <th>Status</th>
                     <th>Priority</th>
                     <th>SLA</th>
+                    <th>Tags</th>
                     <th>Assigned</th>
                     <th>Logged</th>
                     <th style="width:40px"></th>
@@ -177,7 +200,7 @@
             </thead>
             <tbody>
                 {% for c in calls %}
-                <tr class="inbox-row {% if c.Priority == 'Critical' and c.Status not in ['Resolved','Closed'] %}is-critical{% endif %}"
+                <tr class="inbox-row {% if c.Priority == 'Critical' and c.Status not in ['Resolved','Closed'] %}is-critical{% endif %} {% if c.is_overdue %}is-overdue{% endif %}"
                     data-call-id="{{ c.CallID }}"
                     data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}"
                     data-status="{{ c.Status }}"
@@ -189,6 +212,7 @@
                         <span class="d-inline-flex align-items-center gap-2">
                             <span class="urgency-dot {{ c.Priority|lower }}"></span>
                             <a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link" onclick="event.stopPropagation()">#{{ c.CallID }}</a>
+                            {% if c.is_overdue %}<span class="badge bg-danger" style="font-size:0.65rem;">Due</span>{% endif %}
                         </span>
                     </td>
                     <td>
@@ -206,6 +230,16 @@
                         <span class="sla-chip {{ c|sla_badge }}">{{ c|sla_badge }}</span>
                         {% endif %}
                     </td>
+                    <td>
+                        {% if c.tags %}
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for t in c.tags[:3] %}
+                            <span class="badge" style="background:{{ t.Colour }};color:#fff;font-size:0.65rem;">{{ t.Name }}</span>
+                            {% endfor %}
+                            {% if c.tags|length > 3 %}<span class="text-muted" style="font-size:0.7rem;">+{{ c.tags|length - 3 }}</span>{% endif %}
+                        </div>
+                        {% else %}—{% endif %}
+                    </td>
                     <td>{{ c.assignee.FullName.split()[0] if c.assignee else '—' }}</td>
                     <td class="rel-time" data-rel-time="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}">{{ c.DateLogged.strftime('%b %d') if c.DateLogged else '' }}</td>
                     <td class="table-actions" onclick="event.stopPropagation()">
@@ -216,7 +250,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9">
+                    <td colspan="10">
                         <div class="empty-state">
                             <div class="empty-icon"><i class="fas fa-inbox"></i></div>
                             <p>Queue is clear — no calls match these filters.</p>
@@ -261,6 +295,8 @@
    "status": {{ c.Status|tojson }}, "priority": {{ c.Priority|tojson }},
    "reason": {{ c.ReasonForCall|tojson }}, "dept": {{ (c.Department or '')|tojson }},
    "assignee": {{ (c.assignee.FullName if c.assignee else '')|tojson }},
+   "overdue": {{ 'true' if c.is_overdue else 'false' }},
+   "tags": [{% for t in (c.tags or []) %}{"name":{{ t.Name|tojson }},"colour":{{ t.Colour|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}],
    "partial": {{ url_for('calls.detail', call_id=c.CallID, partial=1)|tojson }} }{% if not loop.last %},{% endif %}
 {% endfor %}
 ]
