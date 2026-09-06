@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Board</h1>
-    <p class="page-subtitle">Drag to change status · assign from the card · SLA chips</p>
+    <p class="page-subtitle">Drag to change status · assign from the card · SLA chips · tags</p>
   </div>
   <div class="page-actions">
     <a href="{{ url_for('board.my_queue') }}" class="btn btn-secondary btn-sm">My queue</a>
@@ -24,15 +24,23 @@
       <div class="board-col-body" data-drop-status="{{ status }}">
         {% for c in cards %}
         {% set risk = c|sla_badge %}
-        <article class="board-card sla-{{ risk }}" draggable="true" data-call-id="{{ c.CallID }}"
+        <article class="board-card sla-{{ risk }} {% if c.is_overdue %}is-overdue{% endif %}" draggable="true" data-call-id="{{ c.CallID }}"
                  data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
           <div class="board-card-top">
             <a class="call-id-link" href="{{ url_for('calls.detail', call_id=c.CallID) }}" onclick="event.stopPropagation()">#{{ c.CallID }}</a>
             <span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span>
+            {% if c.is_overdue %}<span class="badge bg-danger" style="font-size:0.65rem;">Due</span>{% endif %}
           </div>
           <div class="board-card-name">{{ c.CallerName }}</div>
           <div class="board-card-meta">{{ c.Department or '—' }} · {{ c.PhoneNumber }}</div>
           <div class="board-card-reason">{{ (c.ReasonForCall or '')[:90] }}{% if c.ReasonForCall and c.ReasonForCall|length > 90 %}…{% endif %}</div>
+          {% if c.tags %}
+          <div class="board-card-tags d-flex flex-wrap gap-1 mt-1">
+            {% for t in c.tags[:3] %}
+            <span class="badge" style="background:{{ t.Colour }};color:#fff;font-size:0.6rem;">{{ t.Name }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
           <div class="board-card-foot" onclick="event.stopPropagation()">
             <span class="sla-chip {{ risk }}">{{ risk }}</span>
             <select class="board-assign form-select form-select-sm" data-call-id="{{ c.CallID }}" title="Assign agent">
