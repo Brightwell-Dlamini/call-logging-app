@@ -11,7 +11,7 @@ from flask import (
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app import db
-from app.models import CallLog, CallActivity, User, Department
+from app.models import CallLog, CallActivity, User, Department, Tag, CannedResponse
 from app.forms.calls import CallLogForm, CallUpdateForm, NoteForm, AssignForm
 from app.utils.decorators import login_required_active, agent_required, admin_required
 from app.utils.helpers import log_activity
@@ -36,6 +36,18 @@ def _populate_department_choices(form):
     ]
 
 
+def _populate_tag_choices(form):
+    tags = Tag.query.filter_by(IsActive=True).order_by(Tag.Name).all()
+    form.tags.choices = [(t.TagID, t.Name) for t in tags]
+
+
+def _populate_canned_choices(form):
+    items = CannedResponse.query.filter_by(IsActive=True).order_by(CannedResponse.Category, CannedResponse.Title).all()
+    form.canned_id.choices = [(0, '— Insert template —')] + [
+        (r.ResponseID, f'{r.Category or "General"}: {r.Title}') for r in items
+    ]
+
+
 @calls_bp.route('/')
 @login_required
 @login_required_active
@@ -50,6 +62,8 @@ def list_calls():
     priority = request.args.get('priority', '')
     department = request.args.get('department', '')
     assigned_to = request.args.get('assigned_to', type=int)
+    tag_id = request.args.get('tag', type=int)
+    overdue = request.args.get('overdue')
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
     sort = request.args.get('sort', 'date_desc')
@@ -81,6 +95,14 @@ def list_calls():
         query = query.filter(CallLog.Department == department)
     if assigned_to:
         query = query.filter(CallLog.AssignedTo == assigned_to)
+    if tag_id:
+        query = query.filter(CallLog.tags.any(Tag.TagID == tag_id))
+    if overdue in ('1', 'true', 'yes'):
+        query = query.filter(
+            CallLog.FollowUpDate.isnot(None),
+            CallLog.FollowUpDate < datetime.utcnow(),
+            CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        )
     if mine:
         query = query.filter(CallLog.AssignedTo == current_user.UserID)
     if unassigned:
@@ -107,18 +129,22 @@ def list_calls():
         query = query.order_by(priority_order, CallLog.DateLogged.desc())
     elif sort == 'status':
         query = query.order_by(CallLog.Status, CallLog.DateLogged.desc())
+    elif sort == 'followup':
+        query = query.order_by(CallLog.FollowUpDate.asc().nullslast(), CallLog.DateLogged.desc())
     else:
         query = query.order_by(CallLog.DateLogged.desc())
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     calls = pagination.items
     departments = Department.query.filter_by(IsActive=True).order_by(Department.DepartmentName).all()
+    tags = Tag.query.filter_by(IsActive=True).order_by(Tag.Name).all()
 
     return render_template(
         'calls/list.html',
         calls=calls,
         pagination=pagination,
         departments=departments,
+        tags=tags,
         title='Calls'
     )
 
@@ -131,6 +157,7 @@ def new_call():
     form = CallLogForm()
     _populate_department_choices(form)
     _populate_agent_choices(form)
+    _populate_tag_choices(form)
 
     if form.validate_on_submit():
         assigned = form.assigned_to.data if form.assigned_to.data and form.assigned_to.data != 0 else None
@@ -143,10 +170,15 @@ def new_call():
             Priority=form.priority.data,
             Status='Open',
             AssignedTo=assigned,
-            Notes=form.notes.data.strip() if form.notes.data else None
+            Notes=form.notes.data.strip() if form.notes.data else None,
+            FollowUpDate=form.follow_up_date.data,
         )
         db.session.add(call)
         db.session.flush()
+
+        if form.tags.data:
+            selected = Tag.query.filter(Tag.TagID.in_(form.tags.data), Tag.IsActive == True).all()
+            call.tags = selected
 
         log_activity(
             call.CallID,
@@ -177,9 +209,13 @@ def detail(call_id):
     update_form = CallUpdateForm(obj=call)
     if call.SatisfactionRating:
         update_form.satisfaction_rating.data = str(call.SatisfactionRating)
+    if call.tags:
+        update_form.tags.data = [t.TagID for t in call.tags]
     note_form = NoteForm()
     assign_form = AssignForm()
     _populate_agent_choices(assign_form)
+    _populate_tag_choices(update_form)
+    _populate_canned_choices(note_form)
     if call.AssignedTo:
         assign_form.assigned_to.data = call.AssignedTo
 
@@ -216,6 +252,7 @@ def detail(call_id):
 def update_call(call_id):
     call = CallLog.query.get_or_404(call_id)
     form = CallUpdateForm()
+    _populate_tag_choices(form)
     if form.validate_on_submit():
         old_status = call.Status
         call.Status = form.status.data
@@ -225,6 +262,10 @@ def update_call(call_id):
             call.TimeSpent = form.time_spent.data
         if form.satisfaction_rating.data:
             call.SatisfactionRating = form.satisfaction_rating.data
+        call.FollowUpDate = form.follow_up_date.data
+        if form.tags.data is not None:
+            selected = Tag.query.filter(Tag.TagID.in_(form.tags.data), Tag.IsActive == True).all()
+            call.tags = selected
         call.LastUpdated = datetime.utcnow()
 
         details = f'Status changed from {old_status} to {call.Status}'
@@ -247,8 +288,16 @@ def update_call(call_id):
 def add_note(call_id):
     call = CallLog.query.get_or_404(call_id)
     form = NoteForm()
+    _populate_canned_choices(form)
     if form.validate_on_submit():
         note_text = form.note.data.strip()
+        # If a canned response was selected and the note is empty or short, use canned body
+        if form.canned_id.data and form.canned_id.data != 0:
+            canned = CannedResponse.query.get(form.canned_id.data)
+            if canned and (not note_text or len(note_text) < 5):
+                note_text = canned.Body
+            elif canned and note_text:
+                note_text = f'{canned.Body}\n\n{note_text}'
         timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
         new_note = f'[{timestamp} - {current_user.FullName}] {note_text}'
         if call.Notes:
@@ -406,14 +455,18 @@ def export_csv():
     writer = csv.writer(output)
     writer.writerow([
         'CallID', 'CallerName', 'PhoneNumber', 'Department', 'CallType',
-        'Priority', 'Status', 'AssignedTo', 'DateLogged', 'ReasonForCall', 'Resolution'
+        'Priority', 'Status', 'AssignedTo', 'DateLogged', 'FollowUpDate',
+        'Tags', 'ReasonForCall', 'Resolution'
     ])
     for c in query.limit(5000).all():
+        tag_names = ', '.join(t.Name for t in (c.tags or []))
         writer.writerow([
             c.CallID, c.CallerName, c.PhoneNumber, c.Department or '', c.CallType,
             c.Priority, c.Status,
             c.assignee.FullName if c.assignee else '',
             c.DateLogged.isoformat() if c.DateLogged else '',
+            c.FollowUpDate.isoformat() if c.FollowUpDate else '',
+            tag_names,
             c.ReasonForCall or '',
             c.Resolution or '',
         ])
