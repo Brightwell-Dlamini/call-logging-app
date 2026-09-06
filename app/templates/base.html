@@ -30,6 +30,7 @@
     <link href="{{ url_for('static', filename='css/wave5.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave6.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave7.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/wave8.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -111,7 +112,7 @@
                 <span class="avatar">{{ current_user.FullName[0]|upper }}</span>
                 <div class="user-meta">
                     <div class="user-name">{{ current_user.FullName }}</div>
-                    <div class="user-role">{{ current_user.Role }} · <span class="presence-pill" style="padding:0;background:none;text-transform:none;letter-spacing:0;"><span class="dot"></span> Online</span></div>
+                    <div class="user-role">{{ current_user.Role }} · <span class="presence-pill" style="padding:0;background:none;text-transform:none;letter-spacing:0;"><span class="dot"></span> Online <span id="onCallTimer" class="on-call-timer" hidden></span></div>
                     <select id="presenceSelect" class="form-select presence-select" title="Your desk status" aria-label="Presence">
                         <option value="available">Available</option>
                         <option value="on_call">On a call</option>
@@ -208,6 +209,8 @@
       <div class="shortcut-row"><span>My queue</span><span class="keys"><kbd>Q</kbd></span></div>
       <div class="shortcut-row"><span>Workload</span><span class="keys"><kbd>W</kbd></span></div>
       <div class="shortcut-row"><span>Focus mode</span><span class="keys"><kbd>F</kbd></span></div>
+      <div class="shortcut-row"><span>Claim focused row</span><span class="keys"><kbd>A</kbd></span></div>
+      <div class="shortcut-row"><span>Claim next unassigned</span><span class="keys"><kbd>N</kbd></span></div>
       <div class="shortcut-row"><span>Resolve focused row</span><span class="keys"><kbd>R</kbd></span></div>
       <div class="shortcut-row"><span>Star focused row</span><span class="keys"><kbd>S</kbd></span></div>
       <div class="shortcut-row"><span>Toggle density</span><span class="keys"><kbd>D</kbd></span></div>
@@ -244,6 +247,7 @@
     <script src="{{ url_for('static', filename='js/wave5.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave6.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave7.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/wave8.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
