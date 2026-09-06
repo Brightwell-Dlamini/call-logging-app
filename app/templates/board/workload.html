@@ -7,6 +7,11 @@
     <p class="page-subtitle">Open tickets per agent · {{ unassigned }} unassigned</p>
   </div>
   <div class="page-actions">
+    {% if current_user.is_manager and unassigned %}
+    <button type="button" class="btn btn-primary btn-sm" id="btnRoundRobin">
+      <i class="fas fa-shuffle"></i> Round-robin assign
+    </button>
+    {% endif %}
     <a href="{{ url_for('board.kanban') }}" class="btn btn-secondary btn-sm">Board</a>
     <a href="{{ url_for('board.my_queue') }}" class="btn btn-secondary btn-sm">My queue</a>
   </div>

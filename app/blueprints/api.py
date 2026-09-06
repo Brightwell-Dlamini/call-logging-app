@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app import db
 from app.models import CallLog, User
-from app.utils.decorators import login_required_active, agent_required
+from app.utils.decorators import login_required_active, agent_required, manager_required
 from app.utils.helpers import get_dashboard_stats, log_activity, get_recent_activity, sla_risk
 
 api_bp = Blueprint('api', __name__)
@@ -198,6 +198,54 @@ def create_call_api():
     log_activity(call.CallID, current_user.UserID, 'Created', 'Via API')
     db.session.commit()
     return jsonify(ok=True, id=call.CallID, call=serialize_call(call, detail=True)), 201
+
+
+@api_bp.route('/calls/round-robin', methods=['POST'])
+@login_required
+@login_required_active
+@manager_required
+def round_robin_assign():
+    """Distribute unassigned open calls evenly across active agents."""
+    agents = (
+        User.query.filter(
+            User.IsActive == True,
+            User.Role.in_(['Agent', 'Manager', 'Admin'])
+        )
+        .order_by(User.UserID)
+        .all()
+    )
+    if not agents:
+        return api_error('No active agents available', 400)
+
+    unassigned = (
+        CallLog.query.filter(
+            CallLog.AssignedTo.is_(None),
+            CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        )
+        .order_by(CallLog.DateLogged.asc())
+        .limit(200)
+        .all()
+    )
+    if not unassigned:
+        return jsonify(ok=True, assigned=0, message='Nothing to assign')
+
+    assigned_count = 0
+    for i, call in enumerate(unassigned):
+        agent = agents[i % len(agents)]
+        call.AssignedTo = agent.UserID
+        if call.Status == 'Open':
+            call.Status = 'In Progress'
+        call.LastUpdated = datetime.utcnow()
+        log_activity(
+            call.CallID,
+            current_user.UserID,
+            'Assigned',
+            f'Round-robin → {agent.FullName}'
+        )
+        assigned_count += 1
+
+    db.session.commit()
+    return jsonify(ok=True, assigned=assigned_count, agents=len(agents))
 
 
 @api_bp.route('/calls/<int:call_id>')
