@@ -1,0 +1,31 @@
+/* Wave 4 */
+.note-templates {
+  display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;
+  margin-bottom: 0.5rem;
+}
+.nt-label {
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--cl-muted, #94a3b8);
+}
+.nt-chip {
+  font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 999px;
+  border: 1px solid var(--cl-border, #e2e8f0);
+  background: var(--cl-surface, #fff); color: var(--cl-text, #0f172a);
+  cursor: pointer;
+}
+.nt-chip:hover {
+  border-color: var(--cl-accent, #6366f1);
+  color: var(--cl-accent, #6366f1);
+}
+.presence-select {
+  font-size: 0.7rem !important;
+  padding: 0.15rem 0.35rem !important;
+  border-radius: 6px;
+  max-width: 110px;
+  margin-top: 0.25rem;
+}
+body[data-presence="on_call"] .presence-pill .dot { background: #F59E0B; }
+body[data-presence="break"] .presence-pill .dot { background: #94A3B8; }
+body[data-presence="available"] .presence-pill .dot { background: #10B981; }
+.focus-mode .chart-panel,
+.focus-mode .activity-feed { display: none !important; }
