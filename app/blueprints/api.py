@@ -91,7 +91,6 @@ def dashboard_stats():
 @login_required
 @login_required_active
 def notifications():
-    """Recent activity for the notification bell."""
     items = get_recent_activity(15)
     out = []
     for a in items:
@@ -254,7 +253,7 @@ def update_call_api(call_id):
 @login_required_active
 @agent_required
 def quick_action(call_id):
-    """claim | resolve | escalate from drawer."""
+    """claim | resolve | escalate | pending | reopen."""
     c = CallLog.query.get(call_id)
     if c is None:
         return api_error('Call not found', 404)
@@ -268,14 +267,34 @@ def quick_action(call_id):
     elif action == 'resolve':
         old = c.Status
         c.Status = 'Resolved'
-        if not c.Resolution:
-            c.Resolution = data.get('resolution') or f'Resolved by {current_user.FullName}'
+        res = (data.get('resolution') or '').strip()
+        if res:
+            c.Resolution = res
+        elif not c.Resolution:
+            c.Resolution = f'Resolved by {current_user.FullName}'
         log_activity(c.CallID, current_user.UserID, 'Updated', f'Status {old} → Resolved (quick)')
     elif action == 'escalate':
         c.Priority = 'Critical'
         log_activity(c.CallID, current_user.UserID, 'Escalated', 'Priority set to Critical')
+    elif action == 'pending':
+        old = c.Status
+        c.Status = 'Pending'
+        reason = (data.get('resolution') or data.get('reason') or '').strip()
+        if reason:
+            note_line = f'[Pending] {reason}'
+            c.Notes = (c.Notes + '\n' + note_line) if c.Notes else note_line
+            log_activity(c.CallID, current_user.UserID, 'Pending', reason[:200])
+        else:
+            log_activity(c.CallID, current_user.UserID, 'Updated', f'Status {old} → Pending')
+    elif action == 'reopen':
+        old = c.Status
+        c.Status = 'Open'
+        log_activity(c.CallID, current_user.UserID, 'Reopened', f'Status {old} → Open')
     else:
-        return api_error('Unknown action', 400, allowed=['claim', 'resolve', 'escalate'])
+        return api_error(
+            'Unknown action', 400,
+            allowed=['claim', 'resolve', 'escalate', 'pending', 'reopen']
+        )
     c.LastUpdated = datetime.utcnow()
     db.session.commit()
     return jsonify(ok=True, status=c.Status, priority=c.Priority, call=serialize_call(c))

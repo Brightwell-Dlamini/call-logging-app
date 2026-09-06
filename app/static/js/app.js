@@ -28,6 +28,9 @@
     COMMANDS = [
       { label: 'Dashboard', href: '/', icon: 'fa-border-all', keywords: 'home' },
       { label: 'Calls', href: '/calls/', icon: 'fa-phone', keywords: 'inbox list' },
+      { label: 'Board', href: '/board/', icon: 'fa-columns', keywords: 'kanban status' },
+      { label: 'My queue', href: '/board/mine', icon: 'fa-inbox', keywords: 'assigned claim' },
+      { label: 'Workload', href: '/board/workload', icon: 'fa-chart-bar', keywords: 'capacity agents' },
       { label: 'Log call', href: '/calls/new', icon: 'fa-plus', keywords: 'create new' },
       { label: 'Reports', href: '/reports/', icon: 'fa-chart-simple', keywords: 'analytics' },
       { label: 'Settings', href: '/settings', icon: 'fa-gear', keywords: 'profile theme' },
@@ -35,13 +38,20 @@
       { label: 'Users', href: '/admin/users', icon: 'fa-users', keywords: 'admin' },
       { label: 'Departments', href: '/admin/departments', icon: 'fa-building', keywords: 'admin' },
       { label: 'Audit log', href: '/admin/activities', icon: 'fa-clock-rotate-left', keywords: 'admin' },
-      { label: 'Toggle theme', action: 'theme', icon: 'fa-moon', keywords: 'dark light' }
+      { label: 'Toggle theme', action: 'theme', icon: 'fa-moon', keywords: 'dark light' },
+      { label: 'Toggle focus mode', action: 'focus', icon: 'fa-eye', keywords: 'distraction free' }
     ];
+    if (typeof window.clExtraCommands === 'function') {
+      try {
+        COMMANDS = COMMANDS.concat(window.clExtraCommands() || []);
+      } catch (e) {}
+    }
   }
 
   function openCmd() {
     var ov = document.getElementById('cmdOverlay');
     if (!ov) return;
+    buildCommands();
     ov.hidden = false;
     var input = document.getElementById('cmdInput');
     input.value = '';
@@ -80,6 +90,16 @@
     if (c.action === 'theme') {
       var modes = ['light', 'dark', 'system'];
       applyTheme(modes[(modes.indexOf(currentTheme()) + 1) % modes.length]);
+      return;
+    }
+    if (c.action === 'focus') {
+      document.body.classList.toggle('focus-mode');
+      try {
+        localStorage.setItem('cl-focus-mode', document.body.classList.contains('focus-mode') ? '1' : '0');
+      } catch (e) {}
+      if (window.clToast) {
+        window.clToast('info', document.body.classList.contains('focus-mode') ? 'Focus mode on' : 'Focus mode off');
+      }
       return;
     }
     if (c.href) window.location.href = c.href;
