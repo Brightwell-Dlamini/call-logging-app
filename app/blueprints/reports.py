@@ -2,14 +2,16 @@
 Reports module: daily, monthly, agent performance, department reports.
 Supports CSV/Excel export; PDF via ReportLab for key reports.
 """
+from calendar import monthrange
 from datetime import datetime, timedelta
 from io import BytesIO
 from flask import (
     Blueprint, render_template, request, flash, redirect, url_for,
-    send_file, Response
+    send_file
 )
 from flask_login import login_required, current_user
-from sqlalchemy import func, extract
+from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -20,6 +22,24 @@ from app.models import CallLog, User, Department
 from app.utils.decorators import login_required_active, manager_required
 
 reports_bp = Blueprint('reports', __name__)
+
+
+def month_bounds(year: int, month: int):
+    """Return [start, end) datetime range for a calendar month (UTC)."""
+    start = datetime(year, month, 1)
+    last_day = monthrange(year, month)[1]
+    end = datetime(year, month, last_day) + timedelta(days=1)
+    return start, end
+
+
+def _counts_by(column, start, end):
+    rows = (
+        db.session.query(column, func.count(CallLog.CallID))
+        .filter(CallLog.DateLogged >= start, CallLog.DateLogged < end)
+        .group_by(column)
+        .all()
+    )
+    return {key: count for key, count in rows if key is not None}
 
 
 @reports_bp.route('/')
@@ -49,10 +69,15 @@ def daily():
         return redirect(url_for('reports.index'))
 
     day_end = day + timedelta(days=1)
-    calls = CallLog.query.filter(
-        CallLog.DateLogged >= day,
-        CallLog.DateLogged < day_end
-    ).order_by(CallLog.DateLogged).all()
+    calls = (
+        CallLog.query.options(joinedload(CallLog.assignee))
+        .filter(
+            CallLog.DateLogged >= day,
+            CallLog.DateLogged < day_end
+        )
+        .order_by(CallLog.DateLogged)
+        .all()
+    )
 
     return render_template(
         'reports/daily.html',
@@ -67,28 +92,25 @@ def daily():
 @login_required_active
 @manager_required
 def monthly():
-    """Monthly summary statistics."""
+    """Monthly summary statistics using an index-friendly date range."""
     year = request.args.get('year', datetime.utcnow().year, type=int)
     month = request.args.get('month', datetime.utcnow().month, type=int)
+    if year < 2000 or year > 2100 or month < 1 or month > 12:
+        flash('Invalid year or month.', 'danger')
+        return redirect(url_for('reports.index'))
 
-    calls = CallLog.query.filter(
-        extract('year', CallLog.DateLogged) == year,
-        extract('month', CallLog.DateLogged) == month
-    ).all()
+    start, end = month_bounds(year, month)
+    month_filter = (CallLog.DateLogged >= start, CallLog.DateLogged < end)
 
-    total = len(calls)
-    by_status = {}
-    by_type = {}
-    by_priority = {}
-    resolved_times = []
-    for c in calls:
-        by_status[c.Status] = by_status.get(c.Status, 0) + 1
-        by_type[c.CallType] = by_type.get(c.CallType, 0) + 1
-        by_priority[c.Priority] = by_priority.get(c.Priority, 0) + 1
-        if c.TimeSpent is not None:
-            resolved_times.append(c.TimeSpent)
-
-    avg_time = sum(resolved_times) / len(resolved_times) if resolved_times else 0
+    total = CallLog.query.filter(*month_filter).count()
+    by_status = _counts_by(CallLog.Status, start, end)
+    by_type = _counts_by(CallLog.CallType, start, end)
+    by_priority = _counts_by(CallLog.Priority, start, end)
+    avg_time = (
+        db.session.query(func.avg(CallLog.TimeSpent))
+        .filter(*month_filter, CallLog.TimeSpent.isnot(None))
+        .scalar()
+    ) or 0
 
     return render_template(
         'reports/monthly.html',
@@ -98,7 +120,7 @@ def monthly():
         by_status=by_status,
         by_type=by_type,
         by_priority=by_priority,
-        avg_time=round(avg_time, 1),
+        avg_time=round(float(avg_time), 1),
         title=f'Monthly Summary – {year}-{month:02d}'
     )
 
@@ -108,7 +130,7 @@ def monthly():
 @login_required_active
 @manager_required
 def agent_performance():
-    """Agent performance metrics."""
+    """Agent performance metrics via aggregates."""
     agent_id = request.args.get('agent_id', type=int)
     agents = User.query.filter(
         User.IsActive == True,
@@ -120,17 +142,31 @@ def agent_performance():
     if agent_id:
         selected_agent = User.query.get(agent_id)
         if selected_agent:
-            handled = CallLog.query.filter_by(AssignedTo=agent_id).all()
-            total = len(handled)
-            resolved = sum(1 for c in handled if c.Status in ('Resolved', 'Closed'))
-            ratings = [c.SatisfactionRating for c in handled if c.SatisfactionRating]
-            times = [c.TimeSpent for c in handled if c.TimeSpent is not None]
+            base = CallLog.query.filter_by(AssignedTo=agent_id)
+            total = base.count()
+            resolved = base.filter(CallLog.Status.in_(['Resolved', 'Closed'])).count()
+            avg_sat = (
+                db.session.query(func.avg(CallLog.SatisfactionRating))
+                .filter(
+                    CallLog.AssignedTo == agent_id,
+                    CallLog.SatisfactionRating.isnot(None),
+                )
+                .scalar()
+            )
+            avg_time = (
+                db.session.query(func.avg(CallLog.TimeSpent))
+                .filter(
+                    CallLog.AssignedTo == agent_id,
+                    CallLog.TimeSpent.isnot(None),
+                )
+                .scalar()
+            )
             metrics = {
                 'total': total,
                 'resolved': resolved,
                 'resolution_rate': round(100 * resolved / total, 1) if total else 0,
-                'avg_satisfaction': round(sum(ratings) / len(ratings), 2) if ratings else None,
-                'avg_time': round(sum(times) / len(times), 1) if times else None
+                'avg_satisfaction': round(float(avg_sat), 2) if avg_sat is not None else None,
+                'avg_time': round(float(avg_time), 1) if avg_time is not None else None
             }
 
     return render_template(
@@ -173,7 +209,8 @@ def export_excel():
     ws.title = 'Calls'
     headers = ['CallID', 'Caller', 'Phone', 'Department', 'Type', 'Priority', 'Status', 'Date']
     ws.append(headers)
-    for c in CallLog.query.order_by(CallLog.DateLogged.desc()).limit(2000).all():
+    query = CallLog.query.order_by(CallLog.DateLogged.desc()).limit(2000)
+    for c in query.yield_per(200):
         ws.append([
             c.CallID, c.CallerName, c.PhoneNumber, c.Department or '',
             c.CallType, c.Priority, c.Status,

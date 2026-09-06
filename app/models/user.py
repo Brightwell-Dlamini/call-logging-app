@@ -17,6 +17,9 @@ class User(UserMixin, db.Model):
         - Agent: Call handling and logging
     """
     __tablename__ = 'users'
+    __table_args__ = (
+        db.Index('ix_users_role_active', 'Role', 'IsActive'),
+    )
 
     UserID = db.Column(db.Integer, primary_key=True, autoincrement=True)
     Username = db.Column(db.String(80), unique=True, nullable=False, index=True)
