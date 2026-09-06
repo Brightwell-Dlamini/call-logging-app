@@ -25,6 +25,9 @@
         <button type="button" class="btn btn-ghost btn-sm" id="toggleFilters" title="Toggle filters">
             <i class="fas fa-filter"></i>
         </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnSaveView" title="Save current filters as a view">
+            <i class="fas fa-bookmark"></i>
+        </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btnClaimNext" title="Claim next (N)">
             <i class="fas fa-hand"></i> Claim next
         </button>
@@ -69,7 +72,7 @@
 <div class="inbox-meta">
     <span class="meta-stat"><strong>{{ pagination.total if pagination else calls|length }}</strong> total</span>
     <span class="meta-stat"><strong>{{ open_count }}</strong> open (page)</span>
-    <span class="desk-tip"><kbd>J</kbd>/<kbd>K</kbd> · <kbd>A</kbd> claim · <kbd>N</kbd> next · <kbd>E</kbd> escalate · <kbd>P</kbd> pending · <kbd>R</kbd> resolve · <kbd>S</kbd> star</span>
+    <span class="desk-tip"><kbd>J</kbd>/<kbd>K</kbd> · <kbd>A</kbd> claim · <kbd>N</kbd> next · <kbd>E</kbd> escalate · <kbd>P</kbd> pending · <kbd>O</kbd> reopen · <kbd>R</kbd> resolve · <kbd>S</kbd> star</span>
 </div>
 
 <div class="quick-filters">
@@ -146,6 +149,9 @@
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="pending">Pending</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="resolve">Resolve</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="escalate">Escalate</button>
+    <select id="bulkAssignSelect" class="form-select bulk-assign-select" title="Assign selected to agent">
+        <option value="">Assign to…</option>
+    </select>
     <button type="button" class="btn btn-ghost btn-sm" id="bulkClear">Clear</button>
 </div>
 
