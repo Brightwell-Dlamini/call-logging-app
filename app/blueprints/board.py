@@ -26,6 +26,11 @@ def _card(c):
         'assigned_to': c.AssignedTo,
         'age_hours': age_hours(c.DateLogged),
         'sla': sla_risk(c),
+        'is_overdue': bool(getattr(c, 'is_overdue', False)),
+        'tags': [
+            {'name': t.Name, 'colour': t.Colour}
+            for t in (c.tags or [])
+        ],
         'reason': (c.ReasonForCall or '')[:120],
     }
 
