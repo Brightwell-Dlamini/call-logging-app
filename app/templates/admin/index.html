@@ -8,34 +8,50 @@
     </div>
 </div>
 
-<div class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
+<div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
     <a href="{{ url_for('admin.users') }}" class="stat-card" style="text-decoration:none;color:inherit;">
         <div class="stat-icon violet"><i class="fas fa-users"></i></div>
         <div>
             <div class="stat-label">Users</div>
-            <div class="stat-value">{{ stats.user_count if stats is defined and stats.user_count is defined else '—' }}</div>
-            <div class="stat-meta">Manage accounts & roles</div>
+            <div class="stat-value">{{ user_count }}</div>
+            <div class="stat-meta">{{ active_users }} active</div>
         </div>
     </a>
     <a href="{{ url_for('admin.departments') }}" class="stat-card" style="text-decoration:none;color:inherit;">
         <div class="stat-icon blue"><i class="fas fa-building"></i></div>
         <div>
             <div class="stat-label">Departments</div>
-            <div class="stat-value">{{ stats.dept_count if stats is defined and stats.dept_count is defined else '—' }}</div>
+            <div class="stat-value">{{ dept_count }}</div>
             <div class="stat-meta">Organize teams</div>
         </div>
     </a>
+    <a href="{{ url_for('admin.tags') }}" class="stat-card" style="text-decoration:none;color:inherit;">
+        <div class="stat-icon amber"><i class="fas fa-tags"></i></div>
+        <div>
+            <div class="stat-label">Tags</div>
+            <div class="stat-value">{{ tag_count }}</div>
+            <div class="stat-meta">Call labels</div>
+        </div>
+    </a>
+    <a href="{{ url_for('admin.canned') }}" class="stat-card" style="text-decoration:none;color:inherit;">
+        <div class="stat-icon green"><i class="fas fa-comment-dots"></i></div>
+        <div>
+            <div class="stat-label">Canned</div>
+            <div class="stat-value">{{ canned_count }}</div>
+            <div class="stat-meta">Quick replies</div>
+        </div>
+    </a>
     <a href="{{ url_for('admin.activities') }}" class="stat-card" style="text-decoration:none;color:inherit;">
-        <div class="stat-icon amber"><i class="fas fa-clock-rotate-left"></i></div>
+        <div class="stat-icon slate"><i class="fas fa-clock-rotate-left"></i></div>
         <div>
             <div class="stat-label">Audit log</div>
-            <div class="stat-value" style="font-size:1rem;padding-top:6px;">View activity</div>
-            <div class="stat-meta">Recent system actions</div>
+            <div class="stat-value" style="font-size:1rem;padding-top:6px;">View</div>
+            <div class="stat-meta">Recent actions</div>
         </div>
     </a>
 </div>
 
-{% if recent_activity is defined %}
+{% if recent_activities is defined %}
 <div class="table-wrap mt-2">
     <div class="card-header"><span>Recent activity</span></div>
     <div class="table-responsive">
@@ -44,7 +60,7 @@
                 <tr><th>When</th><th>User</th><th>Action</th><th>Call</th><th>Details</th></tr>
             </thead>
             <tbody>
-                {% for a in recent_activity %}
+                {% for a in recent_activities %}
                 <tr>
                     <td>{{ a.ActivityDate.strftime('%b %d · %H:%M') if a.ActivityDate else '' }}</td>
                     <td>{{ a.user.FullName if a.user else 'System' }}</td>
