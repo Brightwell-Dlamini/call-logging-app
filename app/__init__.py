@@ -4,7 +4,7 @@ Call Logging Application factory.
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -81,6 +81,10 @@ def create_app(config_name=None):
         db.session.rollback()
         return render_template('errors/500.html'), 500
 
+    @app.route('/favicon.ico')
+    def favicon():
+        return redirect(url_for('static', filename='favicon.svg'), code=302)
+
     @app.route('/health')
     def health():
         db_status = 'unknown'
@@ -127,7 +131,6 @@ def create_app(config_name=None):
             if created:
                 db.session.commit()
                 payload = {'status': 'ok', 'created': created}
-                # Return demo logins only when users were just created.
                 if any(label in ('admin', 'agent1', 'manager1') for label in created):
                     payload['logins'] = {
                         'admin': 'admin123',
@@ -171,8 +174,6 @@ def create_app(config_name=None):
             except Exception as idx_err:
                 db.session.rollback()
                 app.logger.warning('index ensure failed: %s', idx_err)
-            # Auto-seed only outside production so live instances do not
-            # silently recreate demo accounts on empty or reset databases.
             if not _is_production():
                 from app.utils.bootstrap import bootstrap_demo_data
                 created = bootstrap_demo_data(include_sample_calls=True)
