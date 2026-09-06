@@ -7,6 +7,7 @@ from flask import (
     Blueprint, render_template, redirect, url_for, flash, request, abort, Response
 )
 from flask_login import login_required, current_user
+from sqlalchemy.orm import joinedload
 from app import db
 from app.models import User, Department, CallActivity
 from app.forms.admin import UserForm, DepartmentForm
@@ -23,7 +24,12 @@ def index():
     user_count = User.query.count()
     active_users = User.query.filter_by(IsActive=True).count()
     dept_count = Department.query.filter_by(IsActive=True).count()
-    recent_activities = CallActivity.query.order_by(CallActivity.ActivityDate.desc()).limit(20).all()
+    recent_activities = (
+        CallActivity.query.options(joinedload(CallActivity.user))
+        .order_by(CallActivity.ActivityDate.desc())
+        .limit(20)
+        .all()
+    )
     return render_template(
         'admin/index.html',
         user_count=user_count,
@@ -177,8 +183,10 @@ def edit_department(dept_id):
 def activities():
     """System-wide activity / audit log."""
     page = request.args.get('page', 1, type=int)
-    pagination = CallActivity.query.order_by(CallActivity.ActivityDate.desc()).paginate(
-        page=page, per_page=50, error_out=False
+    pagination = (
+        CallActivity.query.options(joinedload(CallActivity.user))
+        .order_by(CallActivity.ActivityDate.desc())
+        .paginate(page=page, per_page=50, error_out=False)
     )
     return render_template(
         'admin/activities.html',
@@ -193,7 +201,12 @@ def activities():
 @admin_required
 def activities_export():
     """CSV export of recent audit events."""
-    rows = CallActivity.query.order_by(CallActivity.ActivityDate.desc()).limit(5000).all()
+    rows = (
+        CallActivity.query.options(joinedload(CallActivity.user))
+        .order_by(CallActivity.ActivityDate.desc())
+        .limit(5000)
+        .all()
+    )
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(['ActivityID', 'CallID', 'User', 'Action', 'Details', 'ActivityDate'])

@@ -47,6 +47,8 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - REST API under `/api/*` (session auth; mutating routes need Agent+)
 - `/health` probes DB backend (`postgres` vs `sqlite`)
 
+Reports and inbox filters use range predicates on `DateLogged` plus composite indexes (`Status+DateLogged`, `AssignedTo+Status`, audit `ActivityDate`) so Neon can avoid full table scans as volume grows.
+
 ---
 
 ## REST API notes
@@ -106,6 +108,8 @@ Open http://127.0.0.1:5000
 
 With Neon: set `DATABASE_URL` in `.env` the same way as on Vercel.
 
+Docker image exposes port 8000 and includes a `/health` HEALTHCHECK.
+
 ---
 
 ## Tests
@@ -115,7 +119,7 @@ pip install pytest
 pytest tests/ -v
 ```
 
-Covers health, login, create call, bulk status, API stats, API validation and JSON 404s.
+Covers health, login, create call, bulk status, API stats, API validation, JSON 404s, monthly date bounds.
 
 ---
 
