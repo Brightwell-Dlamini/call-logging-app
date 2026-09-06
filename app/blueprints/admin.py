@@ -1,5 +1,5 @@
 """
-Admin blueprint: user management, departments, system audit.
+Admin blueprint: user management, departments, tags, canned responses, system audit.
 """
 from io import StringIO
 import csv
@@ -9,8 +9,8 @@ from flask import (
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from app import db
-from app.models import User, Department, CallActivity
-from app.forms.admin import UserForm, DepartmentForm
+from app.models import User, Department, CallActivity, Tag, CannedResponse
+from app.forms.admin import UserForm, DepartmentForm, TagForm, CannedResponseForm
 from app.utils.decorators import admin_required, login_required_active
 
 admin_bp = Blueprint('admin', __name__)
@@ -24,6 +24,8 @@ def index():
     user_count = User.query.count()
     active_users = User.query.filter_by(IsActive=True).count()
     dept_count = Department.query.filter_by(IsActive=True).count()
+    tag_count = Tag.query.filter_by(IsActive=True).count()
+    canned_count = CannedResponse.query.filter_by(IsActive=True).count()
     recent_activities = (
         CallActivity.query.options(joinedload(CallActivity.user))
         .order_by(CallActivity.ActivityDate.desc())
@@ -35,6 +37,8 @@ def index():
         user_count=user_count,
         active_users=active_users,
         dept_count=dept_count,
+        tag_count=tag_count,
+        canned_count=canned_count,
         recent_activities=recent_activities,
         title='Admin'
     )
@@ -175,6 +179,114 @@ def edit_department(dept_id):
         flash('Department updated.', 'success')
         return redirect(url_for('admin.departments'))
     return render_template('admin/department_form.html', form=form, title='Edit Department', dept=dept)
+
+
+# ── Tags ──────────────────────────────────────────────────────────────────────
+
+@admin_bp.route('/tags')
+@login_required
+@admin_required
+def tags():
+    tags_list = Tag.query.order_by(Tag.Name).all()
+    return render_template('admin/tags.html', tags=tags_list, title='Tags')
+
+
+@admin_bp.route('/tags/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_tag():
+    form = TagForm()
+    if form.validate_on_submit():
+        name = form.name.data.strip().lower()
+        existing = Tag.query.filter_by(Name=name).first()
+        if existing:
+            flash('Tag already exists.', 'danger')
+        else:
+            tag = Tag(
+                Name=name,
+                Colour=form.colour.data.strip() or '#6366f1',
+                Description=form.description.data.strip() if form.description.data else None,
+                IsActive=form.is_active.data,
+            )
+            db.session.add(tag)
+            db.session.commit()
+            flash('Tag created.', 'success')
+            return redirect(url_for('admin.tags'))
+    return render_template('admin/tag_form.html', form=form, title='New Tag')
+
+
+@admin_bp.route('/tags/<int:tag_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_tag(tag_id):
+    tag = Tag.query.get_or_404(tag_id)
+    form = TagForm()
+    if request.method == 'GET':
+        form.name.data = tag.Name
+        form.colour.data = tag.Colour
+        form.description.data = tag.Description
+        form.is_active.data = tag.IsActive
+    if form.validate_on_submit():
+        tag.Name = form.name.data.strip().lower()
+        tag.Colour = form.colour.data.strip() or '#6366f1'
+        tag.Description = form.description.data.strip() if form.description.data else None
+        tag.IsActive = form.is_active.data
+        db.session.commit()
+        flash('Tag updated.', 'success')
+        return redirect(url_for('admin.tags'))
+    return render_template('admin/tag_form.html', form=form, title='Edit Tag', tag=tag)
+
+
+# ── Canned Responses ──────────────────────────────────────────────────────────
+
+@admin_bp.route('/canned')
+@login_required
+@admin_required
+def canned():
+    items = CannedResponse.query.order_by(CannedResponse.Category, CannedResponse.Title).all()
+    return render_template('admin/canned.html', items=items, title='Canned Responses')
+
+
+@admin_bp.route('/canned/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_canned():
+    form = CannedResponseForm()
+    if form.validate_on_submit():
+        item = CannedResponse(
+            Title=form.title.data.strip(),
+            Body=form.body.data.strip(),
+            Category=form.category.data.strip() if form.category.data else None,
+            CreatedBy=current_user.UserID,
+            IsActive=form.is_active.data,
+        )
+        db.session.add(item)
+        db.session.commit()
+        flash('Canned response created.', 'success')
+        return redirect(url_for('admin.canned'))
+    return render_template('admin/canned_form.html', form=form, title='New Canned Response')
+
+
+@admin_bp.route('/canned/<int:resp_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_canned(resp_id):
+    item = CannedResponse.query.get_or_404(resp_id)
+    form = CannedResponseForm()
+    if request.method == 'GET':
+        form.title.data = item.Title
+        form.body.data = item.Body
+        form.category.data = item.Category
+        form.is_active.data = item.IsActive
+    if form.validate_on_submit():
+        item.Title = form.title.data.strip()
+        item.Body = form.body.data.strip()
+        item.Category = form.category.data.strip() if form.category.data else None
+        item.IsActive = form.is_active.data
+        db.session.commit()
+        flash('Canned response updated.', 'success')
+        return redirect(url_for('admin.canned'))
+    return render_template('admin/canned_form.html', form=form, title='Edit Canned Response', item=item)
 
 
 @admin_bp.route('/activities')
