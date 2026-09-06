@@ -1,0 +1,72 @@
+/* Wave 11 */
+.saved-views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.saved-views .sv-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cl-muted, #94a3b8);
+}
+.sv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem 0.2rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--cl-border, #e2e8f0);
+  background: var(--cl-surface, #fff);
+  color: var(--cl-text, #0f172a);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+.sv-chip:hover { border-color: var(--cl-accent, #6366f1); color: var(--cl-accent, #6366f1); }
+.sv-x {
+  border: none;
+  background: transparent;
+  color: var(--cl-muted, #94a3b8);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+}
+.note-templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+.note-tpl {
+  border: 1px solid var(--cl-border, #e2e8f0);
+  background: transparent;
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--cl-text-secondary, #64748b);
+  cursor: pointer;
+}
+.note-tpl:hover {
+  border-color: var(--cl-accent, #6366f1);
+  color: var(--cl-accent, #6366f1);
+}
+.sla-countdown {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+}
+.sla-countdown.ok { background: color-mix(in srgb, #22c55e 15%, transparent); color: #16a34a; }
+.sla-countdown.warn { background: color-mix(in srgb, #f59e0b 18%, transparent); color: #d97706; }
+.sla-countdown.breach { background: color-mix(in srgb, #ef4444 18%, transparent); color: #dc2626; }
+.bulk-assign-select {
+  max-width: 160px;
+  font-size: 0.8125rem;
+  height: 2rem;
+  padding: 0.15rem 0.5rem;
+}
