@@ -1,0 +1,27 @@
+/* Wave 8 */
+.nav-progress {
+  position: fixed; top: 0; left: 0; height: 2px; width: 0;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  z-index: 9999; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s;
+}
+.nav-progress.active {
+  opacity: 1;
+  animation: navProg 1.2s ease-in-out infinite;
+}
+@keyframes navProg {
+  0% { width: 0; left: 0; }
+  50% { width: 60%; left: 20%; }
+  100% { width: 0; left: 100%; }
+}
+.on-call-timer {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #F59E0B;
+  margin-left: 0.35rem;
+}
+#filterStarred.active {
+  border-color: #F59E0B;
+  color: #F59E0B;
+}
