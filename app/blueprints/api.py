@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app import db
-from app.models import CallLog, User
+from app.models import CallLog, User, Tag, CannedResponse
 from app.utils.decorators import login_required_active, agent_required, manager_required
 from app.utils.helpers import get_dashboard_stats, log_activity, get_recent_activity, sla_risk
 
@@ -34,6 +34,11 @@ def serialize_call(c, detail=False):
         'department': c.Department,
         'assigned_to': c.AssignedTo,
         'sla': sla_risk(c),
+        'is_overdue': bool(getattr(c, 'is_overdue', False)),
+        'tags': [
+            {'id': t.TagID, 'name': t.Name, 'colour': t.Colour}
+            for t in (c.tags or [])
+        ],
     }
     if detail:
         data.update({
@@ -44,6 +49,7 @@ def serialize_call(c, detail=False):
             'assignee': c.assignee.FullName if c.assignee else None,
             'date_logged': c.DateLogged.isoformat() if c.DateLogged else None,
             'last_updated': c.LastUpdated.isoformat() if c.LastUpdated else None,
+            'follow_up_date': c.FollowUpDate.isoformat() if c.FollowUpDate else None,
             'time_spent': c.TimeSpent,
             'satisfaction': c.SatisfactionRating,
         })
@@ -76,6 +82,8 @@ def dashboard_stats():
         'high_priority': stats['high_priority'],
         'unassigned': stats['unassigned'],
         'my_open': stats['my_open'],
+        'my_overdue': stats.get('my_overdue', 0),
+        'overdue_followups': stats.get('overdue_followups', 0),
         'sla_breach': stats['sla_breach'],
         'sla_warn': stats['sla_warn'],
         'avg_satisfaction': stats.get('avg_satisfaction'),
@@ -83,6 +91,7 @@ def dashboard_stats():
         'status_counts': stats['status_counts'],
         'calls_per_day': stats['calls_per_day'],
         'dept_counts': stats['dept_counts'],
+        'tag_counts': stats.get('tag_counts', []),
         'workload': stats['workload'],
     })
 
@@ -141,6 +150,39 @@ def global_search():
     })
 
 
+@api_bp.route('/tags')
+@login_required
+@login_required_active
+def list_tags_api():
+    tags = Tag.query.filter_by(IsActive=True).order_by(Tag.Name).all()
+    return jsonify({
+        'ok': True,
+        'tags': [
+            {'id': t.TagID, 'name': t.Name, 'colour': t.Colour, 'description': t.Description}
+            for t in tags
+        ],
+    })
+
+
+@api_bp.route('/canned')
+@login_required
+@login_required_active
+def list_canned_api():
+    items = CannedResponse.query.filter_by(IsActive=True).order_by(CannedResponse.Category, CannedResponse.Title).all()
+    return jsonify({
+        'ok': True,
+        'items': [
+            {
+                'id': r.ResponseID,
+                'title': r.Title,
+                'body': r.Body,
+                'category': r.Category,
+            }
+            for r in items
+        ],
+    })
+
+
 @api_bp.route('/calls')
 @login_required
 @login_required_active
@@ -148,9 +190,19 @@ def list_calls_api():
     status = request.args.get('status')
     if status and status not in VALID_STATUS:
         return api_error('Invalid status', 400, allowed=sorted(VALID_STATUS))
+    tag_id = request.args.get('tag', type=int)
+    overdue = request.args.get('overdue')
     q = CallLog.query.order_by(CallLog.DateLogged.desc())
     if status:
         q = q.filter(CallLog.Status == status)
+    if tag_id:
+        q = q.filter(CallLog.tags.any(Tag.TagID == tag_id))
+    if overdue in ('1', 'true', 'yes'):
+        q = q.filter(
+            CallLog.FollowUpDate.isnot(None),
+            CallLog.FollowUpDate < datetime.utcnow(),
+            CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        )
     page, per_page = _page_args()
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
     items = [serialize_call(c) for c in pagination.items]
@@ -182,6 +234,14 @@ def create_call_api():
             assigned = int(assigned)
         except (TypeError, ValueError):
             return api_error('assigned_to must be an integer user id')
+
+    follow_up = None
+    if data.get('follow_up_date'):
+        try:
+            follow_up = datetime.fromisoformat(str(data['follow_up_date']).replace('Z', '+00:00'))
+        except ValueError:
+            pass
+
     call = CallLog(
         CallerName=str(data['caller_name']).strip()[:120],
         PhoneNumber=str(data['phone_number']).strip()[:30],
@@ -192,9 +252,20 @@ def create_call_api():
         Status='Open',
         AssignedTo=assigned,
         Notes=data.get('notes'),
+        FollowUpDate=follow_up,
     )
     db.session.add(call)
     db.session.flush()
+
+    tag_ids = data.get('tag_ids') or data.get('tags') or []
+    if tag_ids:
+        try:
+            tag_ids = [int(t) for t in tag_ids]
+            tags = Tag.query.filter(Tag.TagID.in_(tag_ids), Tag.IsActive == True).all()
+            call.tags = tags
+        except (TypeError, ValueError):
+            pass
+
     log_activity(call.CallID, current_user.UserID, 'Created', 'Via API')
     db.session.commit()
     return jsonify(ok=True, id=call.CallID, call=serialize_call(call, detail=True)), 201
@@ -328,6 +399,23 @@ def update_call_api(call_id):
             except (TypeError, ValueError):
                 return api_error('assigned_to must be an integer user id')
         c.AssignedTo = assigned
+    if 'follow_up_date' in data:
+        val = data['follow_up_date']
+        if not val:
+            c.FollowUpDate = None
+        else:
+            try:
+                c.FollowUpDate = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
+            except ValueError:
+                return api_error('Invalid follow_up_date format')
+    if 'tag_ids' in data or 'tags' in data:
+        tag_ids = data.get('tag_ids') or data.get('tags') or []
+        try:
+            tag_ids = [int(t) for t in tag_ids]
+            tags = Tag.query.filter(Tag.TagID.in_(tag_ids), Tag.IsActive == True).all()
+            c.tags = tags
+        except (TypeError, ValueError):
+            return api_error('Invalid tag_ids')
     c.LastUpdated = datetime.utcnow()
     db.session.commit()
     return jsonify(ok=True, call=serialize_call(c, detail=True))
