@@ -248,6 +248,45 @@ def round_robin_assign():
     return jsonify(ok=True, assigned=assigned_count, agents=len(agents))
 
 
+@api_bp.route('/calls/claim-next', methods=['POST'])
+@login_required
+@login_required_active
+@agent_required
+def claim_next():
+    """Claim the oldest highest-priority unassigned open call."""
+    call = (
+        CallLog.query.filter(
+            CallLog.AssignedTo.is_(None),
+            CallLog.Status.in_(['Open', 'Pending', 'In Progress'])
+        )
+        .order_by(
+            db.case(
+                (CallLog.Priority == 'Critical', 1),
+                (CallLog.Priority == 'High', 2),
+                (CallLog.Priority == 'Medium', 3),
+                else_=4
+            ),
+            CallLog.DateLogged.asc()
+        )
+        .first()
+    )
+    if call is None:
+        return jsonify(ok=False, message='No unassigned calls in the pool')
+
+    call.AssignedTo = current_user.UserID
+    if call.Status == 'Open':
+        call.Status = 'In Progress'
+    call.LastUpdated = datetime.utcnow()
+    log_activity(
+        call.CallID,
+        current_user.UserID,
+        'Claimed',
+        f'Claim-next by {current_user.FullName}'
+    )
+    db.session.commit()
+    return jsonify(ok=True, call_id=call.CallID, call=serialize_call(call))
+
+
 @api_bp.route('/calls/<int:call_id>')
 @login_required
 @login_required_active
