@@ -34,6 +34,7 @@
     <link href="{{ url_for('static', filename='css/wave9.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave10.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave11.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/dark.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -101,6 +102,12 @@
             </a>
             <a href="{{ url_for('admin.departments') }}" class="nav-item {% if request.endpoint and 'department' in (request.endpoint or '') %}active{% endif %}">
                 <i class="fas fa-building"></i><span>Departments</span>
+            </a>
+            <a href="{{ url_for('admin.tags') }}" class="nav-item {% if request.endpoint and 'tag' in (request.endpoint or '') %}active{% endif %}">
+                <i class="fas fa-tags"></i><span>Tags</span>
+            </a>
+            <a href="{{ url_for('admin.canned') }}" class="nav-item {% if request.endpoint and 'canned' in (request.endpoint or '') %}active{% endif %}">
+                <i class="fas fa-comment-dots"></i><span>Canned</span>
             </a>
             <a href="{{ url_for('admin.activities') }}" class="nav-item {% if request.endpoint == 'admin.activities' %}active{% endif %}">
                 <i class="fas fa-clock-rotate-left"></i><span>Audit log</span>
