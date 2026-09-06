@@ -10,12 +10,22 @@
             <span class="badge status-{{ call.Status|lower|replace(' ', '-') }}">{{ call.Status }}</span>
             <span class="badge badge-{{ call.Priority|lower }} ms-1">{{ call.Priority }}</span>
             <span class="sla-chip {{ call|sla_badge }} ms-1">{{ call|sla_badge }}</span>
+            {% if call.is_overdue %}
+            <span class="badge bg-danger ms-1">Overdue follow-up</span>
+            {% endif %}
             <span id="slaCountdown" class="sla-countdown ms-1"
                   data-logged="{{ call.DateLogged.isoformat() if call.DateLogged else '' }}"
                   data-status="{{ call.Status }}"
                   data-priority="{{ call.Priority }}"></span>
             {% if related_count %}<span class="text-muted ms-2" style="font-size:0.8rem;">{{ related_count }} related by phone</span>{% endif %}
         </p>
+        {% if call.tags %}
+        <div class="mt-1 d-flex flex-wrap gap-1">
+            {% for t in call.tags %}
+            <span class="badge" style="background:{{ t.Colour }};color:#fff;">{{ t.Name }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
     <div class="page-actions">
         <div class="quick-actions">
@@ -58,6 +68,14 @@
                     <li><span class="meta-label">Assigned to</span><span class="meta-value">{{ call.assignee.FullName if call.assignee else 'Unassigned' }}</span></li>
                     <li><span class="meta-label">Logged</span><span class="meta-value">{{ call.DateLogged.strftime('%b %d, %Y · %H:%M') if call.DateLogged else '—' }}</span></li>
                     <li><span class="meta-label">Updated</span><span class="meta-value">{{ call.LastUpdated.strftime('%b %d, %Y · %H:%M') if call.LastUpdated else '—' }}</span></li>
+                    <li><span class="meta-label">Follow-up</span>
+                        <span class="meta-value">
+                            {% if call.FollowUpDate %}
+                                {{ call.FollowUpDate.strftime('%b %d, %Y · %H:%M') }}
+                                {% if call.is_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}
+                            {% else %}—{% endif %}
+                        </span>
+                    </li>
                     {% if call.TimeSpent is not none %}
                     <li><span class="meta-label">Time spent</span><span class="meta-value">{{ call.TimeSpent }} min</span></li>
                     {% endif %}
@@ -119,6 +137,12 @@
                     <div class="mb-3">{{ update_form.resolution.label(class="form-label") }}{{ update_form.resolution(class="form-control", rows=2) }}</div>
                     <div class="mb-3">{{ update_form.time_spent.label(class="form-label") }}{{ update_form.time_spent(class="form-control") }}</div>
                     <div class="mb-3">{{ update_form.satisfaction_rating.label(class="form-label") }}{{ update_form.satisfaction_rating(class="form-select") }}</div>
+                    <div class="mb-3">{{ update_form.follow_up_date.label(class="form-label") }}{{ update_form.follow_up_date(class="form-control") }}</div>
+                    <div class="mb-3">
+                        {{ update_form.tags.label(class="form-label") }}
+                        {{ update_form.tags(class="form-select", multiple=true, size=4) }}
+                        <div class="form-text">Hold Ctrl/Cmd to multi-select</div>
+                    </div>
                     {{ update_form.submit(class="btn btn-primary w-100") }}
                 </form>
             </div>
@@ -127,10 +151,13 @@
         <div class="cl-card mb-3">
             <div class="cl-card-header">Add note</div>
             <div class="cl-card-body">
-                <div id="noteTemplates" class="note-templates"></div>
                 <form method="POST" action="{{ url_for('calls.add_note', call_id=call.CallID) }}">
                     {{ note_form.hidden_tag() }}
-                    {{ note_form.note(class="form-control mb-3", rows=3) }}
+                    <div class="mb-2">
+                        {{ note_form.canned_id.label(class="form-label") }}
+                        {{ note_form.canned_id(class="form-select", id="cannedSelect") }}
+                    </div>
+                    {{ note_form.note(class="form-control mb-3", rows=3, id="noteBody") }}
                     {{ note_form.submit(class="btn btn-secondary w-100") }}
                 </form>
             </div>
@@ -157,4 +184,26 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  var sel = document.getElementById('cannedSelect');
+  var body = document.getElementById('noteBody');
+  if (!sel || !body) return;
+  sel.addEventListener('change', function(){
+    if (!sel.value || sel.value === '0') return;
+    // Fetch body from option text is limited; use API if available
+    fetch('/api/canned').then(function(r){ return r.json(); }).then(function(data){
+      if (!data.ok) return;
+      var item = (data.items || []).find(function(i){ return String(i.id) === String(sel.value); });
+      if (item && item.body) {
+        if (!body.value.trim()) body.value = item.body;
+        else body.value = item.body + '\n\n' + body.value;
+      }
+    }).catch(function(){});
+  });
+})();
+</script>
 {% endblock %}
