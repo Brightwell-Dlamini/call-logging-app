@@ -205,7 +205,6 @@ def create_call_api():
 @login_required_active
 @manager_required
 def round_robin_assign():
-    """Distribute unassigned open calls evenly across active agents."""
     agents = (
         User.query.filter(
             User.IsActive == True,
@@ -253,7 +252,6 @@ def round_robin_assign():
 @login_required_active
 @agent_required
 def claim_next():
-    """Claim the oldest highest-priority unassigned open call."""
     call = (
         CallLog.query.filter(
             CallLog.AssignedTo.is_(None),
@@ -365,6 +363,14 @@ def quick_action(call_id):
                 sat_i = int(sat)
                 if 1 <= sat_i <= 5:
                     c.SatisfactionRating = sat_i
+            except (TypeError, ValueError):
+                pass
+        mins = data.get('time_spent')
+        if mins is not None:
+            try:
+                mins_i = int(mins)
+                if mins_i >= 0:
+                    c.TimeSpent = mins_i
             except (TypeError, ValueError):
                 pass
         log_activity(c.CallID, current_user.UserID, 'Updated', f'Status {old} → Resolved (quick)')
