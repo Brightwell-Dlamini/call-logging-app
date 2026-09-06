@@ -272,6 +272,14 @@ def quick_action(call_id):
             c.Resolution = res
         elif not c.Resolution:
             c.Resolution = f'Resolved by {current_user.FullName}'
+        sat = data.get('satisfaction') or data.get('satisfaction_rating')
+        if sat is not None:
+            try:
+                sat_i = int(sat)
+                if 1 <= sat_i <= 5:
+                    c.SatisfactionRating = sat_i
+            except (TypeError, ValueError):
+                pass
         log_activity(c.CallID, current_user.UserID, 'Updated', f'Status {old} → Resolved (quick)')
     elif action == 'escalate':
         c.Priority = 'Critical'
