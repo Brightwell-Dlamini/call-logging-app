@@ -1,0 +1,87 @@
+/* Dark mode for CallLog Pro */
+:root {
+  --cl-bg: #f8fafc;
+  --cl-surface: #ffffff;
+  --cl-text: #0f172a;
+  --cl-muted: #64748b;
+  --cl-border: #e2e8f0;
+  --cl-primary: #4f46e5;
+  --cl-accent: #6366f1;
+}
+
+[data-theme="dark"] {
+  --cl-bg: #0f172a;
+  --cl-surface: #1e293b;
+  --cl-text: #f1f5f9;
+  --cl-muted: #94a3b8;
+  --cl-border: #334155;
+  --cl-primary: #818cf8;
+  --cl-accent: #a5b4fc;
+}
+
+[data-theme="dark"] body {
+  background-color: var(--cl-bg) !important;
+  color: var(--cl-text) !important;
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .dropdown-menu,
+[data-theme="dark"] .list-group-item {
+  background-color: var(--cl-surface) !important;
+  color: var(--cl-text) !important;
+  border-color: var(--cl-border) !important;
+}
+
+[data-theme="dark"] .table {
+  --bs-table-bg: var(--cl-surface);
+  --bs-table-color: var(--cl-text);
+  --bs-table-border-color: var(--cl-border);
+  --bs-table-striped-bg: #1a2436;
+  --bs-table-hover-bg: #243044;
+}
+
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+  background-color: #0f172a !important;
+  color: var(--cl-text) !important;
+  border-color: var(--cl-border) !important;
+}
+
+[data-theme="dark"] .navbar,
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .offcanvas {
+  background-color: var(--cl-surface) !important;
+  border-color: var(--cl-border) !important;
+}
+
+[data-theme="dark"] .text-muted {
+  color: var(--cl-muted) !important;
+}
+
+[data-theme="dark"] .btn-outline-secondary {
+  color: var(--cl-muted);
+  border-color: var(--cl-border);
+}
+
+[data-theme="dark"] a:not(.btn) {
+  color: var(--cl-accent);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.375rem;
+  color: inherit;
+}
+.theme-toggle:hover {
+  background: rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .theme-toggle:hover {
+  background: rgba(255,255,255,0.08);
+}
