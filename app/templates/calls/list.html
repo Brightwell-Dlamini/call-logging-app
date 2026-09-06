@@ -1,8 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Calls{% endblock %}
 {% block content %}
-{% set today = namespace.utcnow().strftime('%Y-%m-%d') %}
-{% set week_ago = (namespace.utcnow() - namespace.timedelta(days=7)).strftime('%Y-%m-%d') if false else '' %}
 <div class="page-header">
     <div>
         <h1 class="page-title">Calls</h1>
@@ -127,6 +125,7 @@
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="claim">Claim for me</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="progress">In Progress</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="resolve">Resolve</button>
+    <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="escalate">Escalate</button>
     <button type="button" class="btn btn-ghost btn-sm" id="bulkClear">Clear</button>
 </div>
 
