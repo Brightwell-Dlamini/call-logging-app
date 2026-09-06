@@ -27,6 +27,7 @@
     <link href="{{ url_for('static', filename='css/wave2.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave3.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave4.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/wave5.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -38,6 +39,9 @@
           document.documentElement.classList.toggle('theme-dark', dark);
         } else {
           document.documentElement.classList.toggle('theme-dark', m === 'dark');
+        }
+        if (localStorage.getItem('cl-focus-mode') === '1') {
+          document.documentElement.classList.add('focus-mode-pending');
         }
       } catch(e){}
     })();
@@ -137,6 +141,9 @@
                 <div id="notifList"></div>
               </div>
             </div>
+            <button type="button" class="btn btn-ghost btn-sm btn-icon" id="focusToggle" title="Focus mode (F)">
+                <i class="fas fa-eye"></i>
+            </button>
             <button type="button" class="btn btn-ghost btn-sm btn-icon" data-shortcuts-open title="Keyboard shortcuts">
                 <i class="fas fa-keyboard"></i>
             </button>
@@ -195,6 +202,7 @@
       <div class="shortcut-row"><span>Board</span><span class="keys"><kbd>B</kbd></span></div>
       <div class="shortcut-row"><span>My queue</span><span class="keys"><kbd>Q</kbd></span></div>
       <div class="shortcut-row"><span>Workload</span><span class="keys"><kbd>W</kbd></span></div>
+      <div class="shortcut-row"><span>Focus mode</span><span class="keys"><kbd>F</kbd></span></div>
       <div class="shortcut-row"><span>Toggle density</span><span class="keys"><kbd>D</kbd></span></div>
       <div class="shortcut-row"><span>Next / previous row</span><span class="keys"><kbd>J</kbd><kbd>K</kbd></span></div>
       <div class="shortcut-row"><span>Open focused row</span><span class="keys"><kbd>Enter</kbd></span></div>
@@ -226,6 +234,7 @@
     <script src="{{ url_for('static', filename='js/wave2.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave3.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave4.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/wave5.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
