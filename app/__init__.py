@@ -199,6 +199,12 @@ def create_app(config_name=None):
     with app.app_context():
         try:
             db.create_all()
+            from app.db_indexes import ensure_indexes
+            try:
+                ensure_indexes(db)
+            except Exception as idx_err:
+                db.session.rollback()
+                app.logger.warning('index ensure failed: %s', idx_err)
             from app.models import User, Department, CallLog
             from datetime import datetime, timedelta
             import random
