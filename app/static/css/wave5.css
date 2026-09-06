@@ -1,0 +1,13 @@
+/* Wave 5 */
+body.focus-mode .chart-panel,
+body.focus-mode .activity-feed,
+body.focus-mode .stat-grid { display: none !important; }
+body.focus-mode .crit-banner { margin-bottom: 1rem; }
+#focusToggle.active {
+  color: var(--cl-accent, #6366f1);
+  background: color-mix(in srgb, var(--cl-accent, #6366f1) 12%, transparent);
+}
+.inbox-row.age-warm td:nth-child(2) { box-shadow: inset 3px 0 0 #F59E0B; }
+.inbox-row.age-hot td:nth-child(2) { box-shadow: inset 3px 0 0 #EF4444; }
+.inbox-row.is-starred.age-hot td:first-child,
+.inbox-row.is-starred.age-warm td:first-child { /* star wins left edge */ }
