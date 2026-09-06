@@ -11,6 +11,11 @@ class CallLog(db.Model):
     Tracks customer calls, support requests, and incidents.
     """
     __tablename__ = 'call_log'
+    __table_args__ = (
+        db.Index('ix_call_log_status_datelogged', 'Status', 'DateLogged'),
+        db.Index('ix_call_log_assigned_status', 'AssignedTo', 'Status'),
+        db.Index('ix_call_log_dept_status', 'Department', 'Status'),
+    )
 
     CallID = db.Column(db.Integer, primary_key=True, autoincrement=True)
     CallerName = db.Column(db.String(120), nullable=False, index=True)
@@ -74,6 +79,9 @@ class CallActivity(db.Model):
     Audit log for all actions performed on a call.
     """
     __tablename__ = 'call_activity'
+    __table_args__ = (
+        db.Index('ix_call_activity_activitydate', 'ActivityDate'),
+    )
 
     ActivityID = db.Column(db.Integer, primary_key=True, autoincrement=True)
     CallID = db.Column(

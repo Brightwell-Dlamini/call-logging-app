@@ -165,6 +165,12 @@ def create_app(config_name=None):
     with app.app_context():
         try:
             db.create_all()
+            from app.db_indexes import ensure_indexes
+            try:
+                ensure_indexes(db)
+            except Exception as idx_err:
+                db.session.rollback()
+                app.logger.warning('index ensure failed: %s', idx_err)
             # Auto-seed only outside production so live instances do not
             # silently recreate demo accounts on empty or reset databases.
             if not _is_production():
