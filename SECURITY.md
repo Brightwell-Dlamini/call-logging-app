@@ -12,8 +12,10 @@ Use this before marking the project “production ready” or sharing credential
 ## Seed endpoint
 
 - [ ] `/seed` is **disabled** when `FLASK_ENV=production` or `VERCEL_ENV=production`, unless `ENABLE_SEED=1`.
+- [ ] If `SEED_TOKEN` is set, requests must send `X-Seed-Token` (or `?token=`).
+- [ ] Demo passwords are returned only when users are first created, not on subsequent `/seed` calls.
+- [ ] Auto-bootstrap on empty DB runs in development only. Production must use an explicit `/seed` with `ENABLE_SEED=1`.
 - [ ] Leave `ENABLE_SEED` unset in production after initial bootstrap.
-- [ ] Prefer auto-bootstrap on empty DB (app factory) over keeping `/seed` open.
 
 ## Application controls already in place
 
@@ -26,6 +28,7 @@ Use this before marking the project “production ready” or sharing credential
 | Audit | `CallActivity` on create, assign, status, bulk |
 | Injection | SQLAlchemy ORM (no raw string SQL for user input) |
 | Rate limit | Flask-Limiter on app |
+| API enums | Status, priority, and call type validated on write |
 
 ## Operational
 

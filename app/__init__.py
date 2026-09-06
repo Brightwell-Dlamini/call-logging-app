@@ -4,7 +4,7 @@ Call Logging Application factory.
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -22,13 +22,20 @@ limiter = Limiter(key_func=get_remote_address)
 csrf = CSRFProtect()
 
 
+def _is_production():
+    return (
+        os.environ.get('FLASK_ENV') == 'production'
+        or os.environ.get('VERCEL_ENV') == 'production'
+    )
+
+
 def create_app(config_name=None):
     """Application factory."""
     if config_name is None:
         config_name = os.environ.get('FLASK_ENV', 'development')
 
     app = Flask(__name__)
-    app.config.from_object(config[config_name])
+    app.config.from_object(config.get(config_name, config['default']))
     app.config.setdefault('WTF_CSRF_HEADERS', ['X-CSRFToken', 'X-CSRF-Token'])
 
     db.init_app(app)
@@ -101,79 +108,38 @@ def create_app(config_name=None):
 
     @app.route('/seed', methods=['POST', 'GET'])
     def seed_endpoint():
-        # Locked in production unless explicitly enabled
-        is_prod = (
-            os.environ.get('FLASK_ENV') == 'production'
-            or os.environ.get('VERCEL_ENV') == 'production'
-        )
-        if is_prod and os.environ.get('ENABLE_SEED') != '1':
+        if _is_production() and os.environ.get('ENABLE_SEED') != '1':
             return {
                 'status': 'disabled',
                 'message': 'Seed endpoint disabled. Set ENABLE_SEED=1 to allow.',
             }, 403
 
-        from app.models import User, Department, CallLog
-        from datetime import datetime, timedelta
+        expected_token = os.environ.get('SEED_TOKEN')
+        if expected_token:
+            provided = request.headers.get('X-Seed-Token') or request.args.get('token') or ''
+            if provided != expected_token:
+                return {'status': 'forbidden', 'message': 'Invalid or missing seed token.'}, 403
+
+        from app.utils.bootstrap import bootstrap_demo_data
         created = []
         try:
-            if User.query.count() == 0:
-                for username, email, full, role, pwd in [
-                    ('admin', 'admin@calllog.local', 'System Administrator', 'Admin', 'admin123'),
-                    ('agent1', 'agent1@calllog.local', 'Thabo Molefe', 'Agent', 'agent123'),
-                    ('manager1', 'manager1@calllog.local', 'Lerato Nkosi', 'Manager', 'manager123'),
-                ]:
-                    u = User(Username=username, Email=email, FullName=full, Role=role, IsActive=True)
-                    u.set_password(pwd)
-                    db.session.add(u)
-                    created.append(username)
-            for name in ['IT', 'HR', 'Sales', 'Support', 'Billing']:
-                if not Department.query.filter_by(DepartmentName=name).first():
-                    db.session.add(Department(DepartmentName=name, IsActive=True))
-                    created.append('dept:' + name)
-            db.session.flush()
-            if CallLog.query.count() == 0:
-                assignees = [u.UserID for u in User.query.limit(3).all()]
-                samples = [
-                    ('Sipho Dlamini', '+27821234567', 'Support', 'Incoming', 'Password reset not working', 'High', 'Open'),
-                    ('Nomsa Khumalo', '+27829876543', 'Billing', 'Incoming', 'Invoice discrepancy for March', 'Medium', 'In Progress'),
-                    ('Johan van der Berg', '+27831112233', 'IT', 'Incoming', 'VPN connection drops every hour', 'Critical', 'Open'),
-                    ('Aisha Patel', '+27824445566', 'HR', 'Outgoing', 'Follow-up on leave request', 'Low', 'Resolved'),
-                    ('Michael Chen', '+27827778899', 'Sales', 'Incoming', 'Quote for enterprise plan', 'Medium', 'Pending'),
-                    ('Fatima Abrahams', '+27820001122', 'Support', 'Incoming', 'App crashes on login', 'High', 'In Progress'),
-                    ('David Mokoena', '+27823334455', 'Billing', 'Incoming', 'Refund not received', 'High', 'Open'),
-                    ('Sarah Jacobs', '+27826667788', 'IT', 'Outgoing', 'Scheduled maintenance notification', 'Low', 'Closed'),
-                    ('Pieter Botha', '+27829990011', 'Sales', 'Incoming', 'Demo request for next week', 'Medium', 'Resolved'),
-                    ('Zanele Mthembu', '+27822223344', 'Support', 'Incoming', '2FA setup assistance', 'Medium', 'Open'),
-                    ('Ryan Smith', '+27825556677', 'HR', 'Incoming', 'Payslip access issue', 'Low', 'Pending'),
-                    ('Grace Ndlovu', '+27828889900', 'IT', 'Incoming', 'Email not syncing on mobile', 'High', 'In Progress'),
-                ]
-                now = datetime.utcnow()
-                for i, (name, phone, dept, ctype, reason, pri, status) in enumerate(samples):
-                    db.session.add(CallLog(
-                        CallerName=name, PhoneNumber=phone, Department=dept, CallType=ctype,
-                        ReasonForCall=reason, Priority=pri, Status=status,
-                        AssignedTo=assignees[i % len(assignees)] if assignees else None,
-                        DateLogged=now - timedelta(hours=i * 5),
-                        TimeSpent=30 if status in ('Resolved', 'Closed') else None,
-                        SatisfactionRating=5 if status in ('Resolved', 'Closed') else None,
-                        Resolution='Issue resolved' if status in ('Resolved', 'Closed') else None,
-                    ))
-                created.append(str(len(samples)) + ' sample calls')
+            created = bootstrap_demo_data(include_sample_calls=True)
             if created:
                 db.session.commit()
-                return {
-                    'status': 'ok',
-                    'created': created,
-                    'logins': {'admin': 'admin123', 'agent1': 'agent123', 'manager1': 'manager123'},
-                }, 200
-            return {
-                'status': 'ok',
-                'message': 'Already seeded',
-                'logins': {'admin': 'admin123', 'agent1': 'agent123', 'manager1': 'manager123'},
-            }, 200
+                payload = {'status': 'ok', 'created': created}
+                # Return demo logins only when users were just created.
+                if any(label in ('admin', 'agent1', 'manager1') for label in created):
+                    payload['logins'] = {
+                        'admin': 'admin123',
+                        'agent1': 'agent123',
+                        'manager1': 'manager123',
+                    }
+                    payload['warning'] = 'Change demo passwords before exposing this instance.'
+                return payload, 200
+            return {'status': 'ok', 'message': 'Already seeded'}, 200
         except Exception as e:
             db.session.rollback()
-            return {'status': 'error', 'message': str(e)}, 500
+            return {'status': 'error', 'message': type(e).__name__}, 500
 
     csrf.exempt(health)
     csrf.exempt(seed_endpoint)
@@ -199,67 +165,14 @@ def create_app(config_name=None):
     with app.app_context():
         try:
             db.create_all()
-            from app.models import User, Department, CallLog
-            from datetime import datetime, timedelta
-            import random
-
-            created = []
-            if User.query.count() == 0:
-                for username, email, full, role, pwd in [
-                    ('admin', 'admin@calllog.local', 'System Administrator', 'Admin', 'admin123'),
-                    ('agent1', 'agent1@calllog.local', 'Thabo Molefe', 'Agent', 'agent123'),
-                    ('manager1', 'manager1@calllog.local', 'Lerato Nkosi', 'Manager', 'manager123'),
-                ]:
-                    u = User(Username=username, Email=email, FullName=full, Role=role, IsActive=True)
-                    u.set_password(pwd)
-                    db.session.add(u)
-                    created.append(username)
-
-            for name in ['IT', 'HR', 'Sales', 'Support', 'Billing']:
-                if not Department.query.filter_by(DepartmentName=name).first():
-                    db.session.add(Department(DepartmentName=name, IsActive=True))
-                    created.append('dept:' + name)
-
-            db.session.flush()
-
-            if CallLog.query.count() == 0:
-                assignees = [u.UserID for u in User.query.limit(3).all()]
-                samples = [
-                    ('Sipho Dlamini', '+27821234567', 'Support', 'Incoming', 'Password reset not working', 'High', 'Open'),
-                    ('Nomsa Khumalo', '+27829876543', 'Billing', 'Incoming', 'Invoice discrepancy for March', 'Medium', 'In Progress'),
-                    ('Johan van der Berg', '+27831112233', 'IT', 'Incoming', 'VPN connection drops every hour', 'Critical', 'Open'),
-                    ('Aisha Patel', '+27824445566', 'HR', 'Outgoing', 'Follow-up on leave request', 'Low', 'Resolved'),
-                    ('Michael Chen', '+27827778899', 'Sales', 'Incoming', 'Quote for enterprise plan', 'Medium', 'Pending'),
-                    ('Fatima Abrahams', '+27820001122', 'Support', 'Incoming', 'App crashes on login', 'High', 'In Progress'),
-                    ('David Mokoena', '+27823334455', 'Billing', 'Incoming', 'Refund not received', 'High', 'Open'),
-                    ('Sarah Jacobs', '+27826667788', 'IT', 'Outgoing', 'Scheduled maintenance notification', 'Low', 'Closed'),
-                    ('Pieter Botha', '+27829990011', 'Sales', 'Incoming', 'Demo request for next week', 'Medium', 'Resolved'),
-                    ('Zanele Mthembu', '+27822223344', 'Support', 'Incoming', '2FA setup assistance', 'Medium', 'Open'),
-                    ('Ryan Smith', '+27825556677', 'HR', 'Incoming', 'Payslip access issue', 'Low', 'Pending'),
-                    ('Grace Ndlovu', '+27828889900', 'IT', 'Incoming', 'Email not syncing on mobile', 'High', 'In Progress'),
-                ]
-                now = datetime.utcnow()
-                for i, (name, phone, dept, ctype, reason, pri, status) in enumerate(samples):
-                    db.session.add(CallLog(
-                        CallerName=name,
-                        PhoneNumber=phone,
-                        Department=dept,
-                        CallType=ctype,
-                        ReasonForCall=reason,
-                        Priority=pri,
-                        Status=status,
-                        AssignedTo=assignees[i % len(assignees)] if assignees else None,
-                        DateLogged=now - timedelta(hours=i * 5 + random.randint(0, 3)),
-                        Notes='Demo seed data' if i % 3 == 0 else None,
-                        TimeSpent=random.choice([15, 30, 45, 60]) if status in ('Resolved', 'Closed') else None,
-                        SatisfactionRating=random.choice([4, 5]) if status in ('Resolved', 'Closed') else None,
-                        Resolution='Issue resolved with caller' if status in ('Resolved', 'Closed') else None,
-                    ))
-                created.append(str(len(samples)) + ' sample calls')
-
-            if created:
-                db.session.commit()
-                app.logger.info('Bootstrapped demo data: %s', created)
+            # Auto-seed only outside production so live instances do not
+            # silently recreate demo accounts on empty or reset databases.
+            if not _is_production():
+                from app.utils.bootstrap import bootstrap_demo_data
+                created = bootstrap_demo_data(include_sample_calls=True)
+                if created:
+                    db.session.commit()
+                    app.logger.info('Bootstrapped demo data: %s', created)
         except Exception as e:
             app.logger.warning('db bootstrap failed: %s', e)
 

@@ -12,6 +12,10 @@ from app.utils.helpers import get_dashboard_stats, log_activity, get_recent_acti
 
 api_bp = Blueprint('api', __name__)
 
+ALLOWED_STATUSES = {'Open', 'In Progress', 'Pending', 'Resolved', 'Closed'}
+ALLOWED_PRIORITIES = {'Low', 'Medium', 'High', 'Critical'}
+ALLOWED_CALL_TYPES = {'Incoming', 'Outgoing'}
+
 
 @api_bp.route('/dashboard/stats')
 @login_required
@@ -28,6 +32,7 @@ def dashboard_stats():
         'sla_breach': stats['sla_breach'],
         'sla_warn': stats['sla_warn'],
         'avg_satisfaction': stats.get('avg_satisfaction'),
+        'avg_handle_time': stats.get('avg_handle_time'),
         'status_counts': stats['status_counts'],
         'calls_per_day': stats['calls_per_day'],
         'dept_counts': stats['dept_counts'],
@@ -57,25 +62,26 @@ def notifications():
 @login_required
 @login_required_active
 def global_search():
-    q = (request.args.get('q') or '').strip()
+    q = (request.args.get('q') or '').strip()[:80]
     if len(q) < 1:
         return jsonify(calls=[], users=[])
     like = f'%{q}%'
-    call_q = CallLog.query.filter(or_(
+    filters = [
         CallLog.CallerName.ilike(like),
         CallLog.PhoneNumber.ilike(like),
         CallLog.ReasonForCall.ilike(like),
-    ))
+    ]
     try:
         cid = int(q)
-        call_q = CallLog.query.filter(or_(
-            CallLog.CallID == cid,
-            CallLog.CallerName.ilike(like),
-            CallLog.PhoneNumber.ilike(like),
-        ))
+        filters.append(CallLog.CallID == cid)
     except ValueError:
         pass
-    calls = call_q.order_by(CallLog.DateLogged.desc()).limit(8).all()
+    calls = (
+        CallLog.query.filter(or_(*filters))
+        .order_by(CallLog.DateLogged.desc())
+        .limit(8)
+        .all()
+    )
     users = User.query.filter(
         User.IsActive == True,
         or_(User.FullName.ilike(like), User.Username.ilike(like))
@@ -106,6 +112,8 @@ def list_calls_api():
     status = request.args.get('status')
     q = CallLog.query.order_by(CallLog.DateLogged.desc())
     if status:
+        if status not in ALLOWED_STATUSES:
+            return jsonify(ok=False, error='Invalid status'), 400
         q = q.filter(CallLog.Status == status)
     calls = q.limit(50).all()
     return jsonify([
@@ -133,13 +141,19 @@ def create_call_api():
     for k in required:
         if not data.get(k):
             return jsonify(ok=False, error=f'Missing {k}'), 400
+    call_type = data.get('call_type', 'Incoming')
+    priority = data.get('priority') or 'Medium'
+    if call_type not in ALLOWED_CALL_TYPES:
+        return jsonify(ok=False, error='Invalid call_type'), 400
+    if priority not in ALLOWED_PRIORITIES:
+        return jsonify(ok=False, error='Invalid priority'), 400
     call = CallLog(
-        CallerName=str(data['caller_name']).strip(),
-        PhoneNumber=str(data['phone_number']).strip(),
+        CallerName=str(data['caller_name']).strip()[:200],
+        PhoneNumber=str(data['phone_number']).strip()[:40],
         Department=data.get('department') or None,
-        CallType=data.get('call_type', 'Incoming'),
-        ReasonForCall=str(data['reason_for_call']).strip(),
-        Priority=data.get('priority') or 'Medium',
+        CallType=call_type,
+        ReasonForCall=str(data['reason_for_call']).strip()[:2000],
+        Priority=priority,
         Status='Open',
         AssignedTo=data.get('assigned_to') or None,
         Notes=data.get('notes'),
@@ -180,10 +194,14 @@ def update_call_api(call_id):
     c = CallLog.query.get_or_404(call_id)
     data = request.get_json(silent=True) or {}
     if 'status' in data and data['status']:
+        if data['status'] not in ALLOWED_STATUSES:
+            return jsonify(ok=False, error='Invalid status'), 400
         old = c.Status
         c.Status = data['status']
         log_activity(c.CallID, current_user.UserID, 'Updated', f'Status {old} → {c.Status} (API)')
     if 'priority' in data and data['priority']:
+        if data['priority'] not in ALLOWED_PRIORITIES:
+            return jsonify(ok=False, error='Invalid priority'), 400
         c.Priority = data['priority']
     if 'resolution' in data:
         c.Resolution = data['resolution']
@@ -248,7 +266,7 @@ def daily_report_api():
 @login_required
 @login_required_active
 def phone_lookup():
-    phone = (request.args.get('phone') or '').strip()
+    phone = (request.args.get('phone') or '').strip()[:40]
     if len(phone) < 5:
         return jsonify(matches=[])
     matches = (
