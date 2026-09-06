@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="alternate icon" href="{{ url_for('static', filename='favicon.svg') }}">
     <meta name="theme-color" content="#0F172A">
     {% if current_user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,6 +26,7 @@
     <link href="{{ url_for('static', filename='css/upgrades.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave2.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave3.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/wave4.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -101,6 +103,11 @@
                 <div class="user-meta">
                     <div class="user-name">{{ current_user.FullName }}</div>
                     <div class="user-role">{{ current_user.Role }} · <span class="presence-pill" style="padding:0;background:none;text-transform:none;letter-spacing:0;"><span class="dot"></span> Online</span></div>
+                    <select id="presenceSelect" class="form-select presence-select" title="Your desk status" aria-label="Presence">
+                        <option value="available">Available</option>
+                        <option value="on_call">On a call</option>
+                        <option value="break">Break</option>
+                    </select>
                 </div>
             </div>
             <a href="{{ url_for('auth.logout') }}" class="nav-item logout">
@@ -218,6 +225,7 @@
     <script src="{{ url_for('static', filename='js/upgrades.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave2.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave3.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/wave4.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
