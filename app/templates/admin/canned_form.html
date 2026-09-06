@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4" style="max-width:640px">
+  <h1 class="h3 mb-4">{{ title }}</h1>
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          <label class="form-label">{{ form.title.label }}</label>
+          {{ form.title(class="form-control") }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ form.category.label }}</label>
+          {{ form.category(class="form-control", placeholder="e.g. Resolution, Greeting") }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ form.body.label }}</label>
+          {{ form.body(class="form-control", rows=5) }}
+        </div>
+        <div class="mb-3 form-check">
+          {{ form.is_active(class="form-check-input") }}
+          <label class="form-check-label">{{ form.is_active.label }}</label>
+        </div>
+        <div class="d-flex gap-2">
+          {{ form.submit(class="btn btn-primary") }}
+          <a href="{{ url_for('admin.canned') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
