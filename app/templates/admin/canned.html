@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Canned Responses</h1>
+    <a href="{{ url_for('admin.new_canned') }}" class="btn btn-primary btn-sm">+ New Response</a>
+  </div>
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Body</th>
+            <th>Active</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in items %}
+          <tr>
+            <td class="fw-medium">{{ r.Title }}</td>
+            <td>{{ r.Category or '—' }}</td>
+            <td class="text-muted small" style="max-width:320px">{{ r.Body[:120] }}{% if r.Body|length > 120 %}…{% endif %}</td>
+            <td>{{ 'Yes' if r.IsActive else 'No' }}</td>
+            <td class="text-end">
+              <a href="{{ url_for('admin.edit_canned', resp_id=r.ResponseID) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-4">No canned responses yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
