@@ -74,6 +74,16 @@
                             {{ form.assigned_to.label(class="form-label") }}
                             {{ form.assigned_to(class="form-select") }}
                         </div>
+                        <div class="col-md-6">
+                            {{ form.follow_up_date.label(class="form-label") }}
+                            {{ form.follow_up_date(class="form-control") }}
+                            <div class="form-text">Optional next-action date</div>
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.tags.label(class="form-label") }}
+                            {{ form.tags(class="form-select", multiple=true, size=4) }}
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple</div>
+                        </div>
                         <div class="col-12">
                             {{ form.reason_for_call.label(class="form-label") }}
                             {{ form.reason_for_call(class="form-control" + (" is-invalid" if form.reason_for_call.errors else ""), rows=4, placeholder="What was the call about?") }}
@@ -100,7 +110,8 @@
                     <li><i class="fas fa-bolt"></i><span>Mark <strong>Critical</strong> only when SLA is under 2 hours.</span></li>
                     <li><i class="fas fa-user"></i><span>Assign now so the workload board stays accurate.</span></li>
                     <li><i class="fas fa-clock-rotate-left"></i><span>Enter phone number to surface prior tickets automatically.</span></li>
-                    <li><i class="fas fa-clock"></i><span>Recent callers appear as chips after you log a few calls.</span></li>
+                    <li><i class="fas fa-tags"></i><span>Use tags for billing, VIP, technical, etc.</span></li>
+                    <li><i class="fas fa-calendar"></i><span>Set a follow-up date when a callback is needed.</span></li>
                 </ul>
             </div>
         </aside>
