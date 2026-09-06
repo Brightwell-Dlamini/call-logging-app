@@ -32,6 +32,7 @@
     <link href="{{ url_for('static', filename='css/wave7.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave8.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave9.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/wave10.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -214,6 +215,7 @@
       <div class="shortcut-row"><span>Claim focused row</span><span class="keys"><kbd>A</kbd></span></div>
       <div class="shortcut-row"><span>Claim next unassigned</span><span class="keys"><kbd>N</kbd></span></div>
       <div class="shortcut-row"><span>Escalate focused row</span><span class="keys"><kbd>E</kbd></span></div>
+      <div class="shortcut-row"><span>Pending focused row</span><span class="keys"><kbd>P</kbd></span></div>
       <div class="shortcut-row"><span>Resolve focused row</span><span class="keys"><kbd>R</kbd></span></div>
       <div class="shortcut-row"><span>Star focused row</span><span class="keys"><kbd>S</kbd></span></div>
       <div class="shortcut-row"><span>Toggle density</span><span class="keys"><kbd>D</kbd></span></div>
@@ -252,6 +254,7 @@
     <script src="{{ url_for('static', filename='js/wave7.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave8.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave9.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/wave10.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
