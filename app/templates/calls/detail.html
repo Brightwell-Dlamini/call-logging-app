@@ -10,6 +10,10 @@
             <span class="badge status-{{ call.Status|lower|replace(' ', '-') }}">{{ call.Status }}</span>
             <span class="badge badge-{{ call.Priority|lower }} ms-1">{{ call.Priority }}</span>
             <span class="sla-chip {{ call|sla_badge }} ms-1">{{ call|sla_badge }}</span>
+            <span id="slaCountdown" class="sla-countdown ms-1"
+                  data-logged="{{ call.DateLogged.isoformat() if call.DateLogged else '' }}"
+                  data-status="{{ call.Status }}"
+                  data-priority="{{ call.Priority }}"></span>
             {% if related_count %}<span class="text-muted ms-2" style="font-size:0.8rem;">{{ related_count }} related by phone</span>{% endif %}
         </p>
     </div>
@@ -18,6 +22,7 @@
             <button type="button" class="btn btn-secondary btn-sm" data-quick="claim" data-call-id="{{ call.CallID }}"><i class="fas fa-hand"></i> Claim</button>
             <button type="button" class="btn btn-secondary btn-sm" data-quick="resolve" data-call-id="{{ call.CallID }}"><i class="fas fa-check"></i> Resolve</button>
             <button type="button" class="btn btn-ghost btn-sm" data-quick="escalate" data-call-id="{{ call.CallID }}"><i class="fas fa-bolt"></i> Escalate</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-quick="reopen" data-call-id="{{ call.CallID }}"><i class="fas fa-rotate-left"></i> Reopen</button>
         </div>
         <a href="{{ url_for('calls.list_calls') }}" class="btn btn-secondary btn-sm">
             <i class="fas fa-arrow-left"></i> Back
@@ -122,6 +127,7 @@
         <div class="cl-card mb-3">
             <div class="cl-card-header">Add note</div>
             <div class="cl-card-body">
+                <div id="noteTemplates" class="note-templates"></div>
                 <form method="POST" action="{{ url_for('calls.add_note', call_id=call.CallID) }}">
                     {{ note_form.hidden_tag() }}
                     {{ note_form.note(class="form-control mb-3", rows=3) }}
