@@ -27,6 +27,16 @@ DEMO_CANNED = [
     ('Awaiting Information', 'We are currently awaiting additional information from your side to proceed.', 'Pending'),
 ]
 
+DEMO_DISPOSITIONS = [
+    ('RESOLVED', 'Resolved – customer confirmed', 'Issue fixed and confirmed by caller'),
+    ('INFO_PROVIDED', 'Information provided', 'Caller received the information requested'),
+    ('CALLBACK', 'Callback scheduled', 'Outbound callback arranged'),
+    ('ESCALATED', 'Escalated', 'Handed to another team or tier'),
+    ('DUPLICATE', 'Duplicate', 'Duplicate of an existing ticket'),
+    ('NO_RESPONSE', 'No response', 'Could not reach customer'),
+    ('SPAM', 'Spam / invalid', 'Spam or invalid contact'),
+]
+
 DEMO_CALLS = [
     ('Sipho Dlamini', '+27821234567', 'Support', 'Incoming', 'Password reset not working', 'High', 'Open'),
     ('Nomsa Khumalo', '+27829876543', 'Billing', 'Incoming', 'Invoice discrepancy for March', 'Medium', 'In Progress'),
@@ -44,18 +54,25 @@ DEMO_CALLS = [
 
 
 def bootstrap_demo_data(include_sample_calls=True):
-    """Create demo users, departments, tags, canned responses, and optional sample calls if missing.
+    """Create demo users, departments, tags, canned responses, dispositions, and optional sample calls.
 
     Returns a list of created labels. Does not commit.
     """
     from app import db
-    from app.models import User, Department, CallLog, Tag, CannedResponse
+    from app.models import User, Department, CallLog, Tag, CannedResponse, DispositionCode, Contact
 
     created = []
 
     if User.query.count() == 0:
         for username, email, full, role, pwd in DEMO_USERS:
-            u = User(Username=username, Email=email, FullName=full, Role=role, IsActive=True)
+            u = User(
+                Username=username,
+                Email=email,
+                FullName=full,
+                Role=role,
+                IsActive=True,
+                Presence='Available',
+            )
             u.set_password(pwd)
             db.session.add(u)
             created.append(username)
@@ -80,6 +97,16 @@ def bootstrap_demo_data(include_sample_calls=True):
             ))
         created.append(f'{len(DEMO_CANNED)} canned responses')
 
+    if DispositionCode.query.count() == 0:
+        for code, label, desc in DEMO_DISPOSITIONS:
+            db.session.add(DispositionCode(
+                Code=code,
+                Label=label,
+                Description=desc,
+                IsActive=True,
+            ))
+        created.append(f'{len(DEMO_DISPOSITIONS)} dispositions')
+
     db.session.flush()
 
     if include_sample_calls and CallLog.query.count() == 0:
@@ -100,10 +127,15 @@ def bootstrap_demo_data(include_sample_calls=True):
                 SatisfactionRating=5 if status in ('Resolved', 'Closed') else None,
                 Resolution='Issue resolved' if status in ('Resolved', 'Closed') else None,
             )
-            # Simple demo follow-up on a few open items
             if status in ('Open', 'In Progress', 'Pending') and i % 3 == 0:
                 call.FollowUpDate = now + timedelta(days=1 if i % 2 == 0 else -1)
             db.session.add(call)
+            if not Contact.query.filter_by(PhoneNumber=phone).first():
+                db.session.add(Contact(
+                    PhoneNumber=phone,
+                    DisplayName=name,
+                    IsVIP=(i % 5 == 0),
+                ))
         created.append(str(len(DEMO_CALLS)) + ' sample calls')
 
     return created
