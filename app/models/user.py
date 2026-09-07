@@ -31,6 +31,11 @@ class User(UserMixin, db.Model):
         nullable=False,
         default='Agent'
     )
+    Presence = db.Column(
+        db.Enum('Available', 'Busy', 'Away', 'Offline', name='presence_statuses'),
+        nullable=False,
+        default='Available'
+    )
     IsActive = db.Column(db.Boolean, default=True, nullable=False)
     CreatedAt = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     LastLogin = db.Column(db.DateTime, nullable=True)
