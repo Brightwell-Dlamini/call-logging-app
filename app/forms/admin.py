@@ -90,3 +90,21 @@ class CannedResponseForm(FlaskForm):
     )
     is_active = BooleanField('Active', default=True)
     submit = SubmitField('Save Response')
+
+
+class DispositionForm(FlaskForm):
+    """Create or edit disposition code."""
+    code = StringField(
+        'Code',
+        validators=[DataRequired(), Length(min=2, max=40)]
+    )
+    label = StringField(
+        'Label',
+        validators=[DataRequired(), Length(min=2, max=120)]
+    )
+    description = StringField(
+        'Description',
+        validators=[Optional(), Length(max=255)]
+    )
+    is_active = BooleanField('Active', default=True)
+    submit = SubmitField('Save Disposition')
