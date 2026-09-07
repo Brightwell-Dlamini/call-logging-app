@@ -13,6 +13,12 @@
             {% if call.is_overdue %}
             <span class="badge bg-danger ms-1">Overdue follow-up</span>
             {% endif %}
+            {% if call.disposition %}
+            <span class="badge ms-1" style="background:#64748b;color:#fff;">{{ call.disposition.Code }}</span>
+            {% endif %}
+            {% if contact and contact.IsVIP %}
+            <span class="badge ms-1" style="background:#f59e0b;color:#fff;">VIP</span>
+            {% endif %}
             <span id="slaCountdown" class="sla-countdown ms-1"
                   data-logged="{{ call.DateLogged.isoformat() if call.DateLogged else '' }}"
                   data-status="{{ call.Status }}"
@@ -29,6 +35,13 @@
     </div>
     <div class="page-actions">
         <div class="quick-actions">
+            <form method="POST" action="{{ url_for('calls.watch_call', call_id=call.CallID) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-ghost btn-sm" title="Watch">
+                    <i class="{% if is_watching %}fas{% else %}far{% endif %} fa-eye"></i>
+                    {% if is_watching %}Watching{% else %}Watch{% endif %}
+                </button>
+            </form>
             <button type="button" class="btn btn-secondary btn-sm" data-quick="claim" data-call-id="{{ call.CallID }}"><i class="fas fa-hand"></i> Claim</button>
             <button type="button" class="btn btn-secondary btn-sm" data-quick="resolve" data-call-id="{{ call.CallID }}"><i class="fas fa-check"></i> Resolve</button>
             <button type="button" class="btn btn-ghost btn-sm" data-quick="escalate" data-call-id="{{ call.CallID }}"><i class="fas fa-bolt"></i> Escalate</button>
@@ -65,7 +78,7 @@
                     </span></li>
                     <li><span class="meta-label">Department</span><span class="meta-value">{{ call.Department or '—' }}</span></li>
                     <li><span class="meta-label">Type</span><span class="meta-value">{{ call.CallType }}</span></li>
-                    <li><span class="meta-label">Assigned to</span><span class="meta-value">{{ call.assignee.FullName if call.assignee else 'Unassigned' }}</span></li>
+                    <li><span class="meta-label">Assigned to</span><span class="meta-value">{{ call.assignee.FullName if call.assignee else 'Unassigned' }}{% if call.assignee and call.assignee.Presence %} · {{ call.assignee.Presence }}{% endif %}</span></li>
                     <li><span class="meta-label">Logged</span><span class="meta-value">{{ call.DateLogged.strftime('%b %d, %Y · %H:%M') if call.DateLogged else '—' }}</span></li>
                     <li><span class="meta-label">Updated</span><span class="meta-value">{{ call.LastUpdated.strftime('%b %d, %Y · %H:%M') if call.LastUpdated else '—' }}</span></li>
                     <li><span class="meta-label">Follow-up</span>
@@ -76,6 +89,7 @@
                             {% else %}—{% endif %}
                         </span>
                     </li>
+                    <li><span class="meta-label">Disposition</span><span class="meta-value">{{ call.disposition.Label if call.disposition else '—' }}</span></li>
                     {% if call.TimeSpent is not none %}
                     <li><span class="meta-label">Time spent</span><span class="meta-value">{{ call.TimeSpent }} min</span></li>
                     {% endif %}
@@ -100,6 +114,9 @@
                 </div>
                 {% endif %}
                 <div class="c360-actions mt-3">
+                    <a class="btn btn-secondary btn-sm" href="{{ url_for('calls.contact_profile', phone=call.PhoneNumber) }}">
+                        <i class="fas fa-id-card"></i> Contact profile
+                    </a>
                     <a class="btn btn-secondary btn-sm" href="{{ url_for('calls.list_calls', search=call.PhoneNumber) }}">
                         <i class="fas fa-clock-rotate-left"></i> History by number
                     </a>
@@ -134,6 +151,7 @@
                 <form method="POST" action="{{ url_for('calls.update_call', call_id=call.CallID) }}">
                     {{ update_form.hidden_tag() }}
                     <div class="mb-3">{{ update_form.status.label(class="form-label") }}{{ update_form.status(class="form-select") }}</div>
+                    <div class="mb-3">{{ update_form.disposition_id.label(class="form-label") }}{{ update_form.disposition_id(class="form-select") }}</div>
                     <div class="mb-3">{{ update_form.resolution.label(class="form-label") }}{{ update_form.resolution(class="form-control", rows=2) }}</div>
                     <div class="mb-3">{{ update_form.time_spent.label(class="form-label") }}{{ update_form.time_spent(class="form-control") }}</div>
                     <div class="mb-3">{{ update_form.satisfaction_rating.label(class="form-label") }}{{ update_form.satisfaction_rating(class="form-select") }}</div>
@@ -194,7 +212,6 @@
   if (!sel || !body) return;
   sel.addEventListener('change', function(){
     if (!sel.value || sel.value === '0') return;
-    // Fetch body from option text is limited; use API if available
     fetch('/api/canned').then(function(r){ return r.json(); }).then(function(data){
       if (!data.ok) return;
       var item = (data.items || []).find(function(i){ return String(i.id) === String(sel.value); });
