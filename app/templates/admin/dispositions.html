@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Dispositions{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Disposition codes</h1>
+    <p class="page-subtitle">Structured outcomes when resolving calls</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('admin.new_disposition') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> New</a>
+  </div>
+</div>
+<div class="table-wrap">
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>Code</th><th>Label</th><th>Description</th><th>Active</th><th></th></tr></thead>
+      <tbody>
+        {% for d in items %}
+        <tr>
+          <td class="fw-medium">{{ d.Code }}</td>
+          <td>{{ d.Label }}</td>
+          <td class="text-muted" style="font-size:0.85rem;">{{ d.Description or '—' }}</td>
+          <td>{% if d.IsActive %}<span class="badge status-resolved">Yes</span>{% else %}<span class="badge">No</span>{% endif %}</td>
+          <td><a href="{{ url_for('admin.edit_disposition', disp_id=d.DispositionID) }}" class="btn btn-ghost btn-sm">Edit</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state"><p>No disposition codes yet.</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
