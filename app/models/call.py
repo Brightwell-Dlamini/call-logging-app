@@ -4,6 +4,7 @@ Call Log and Call Activity models.
 from datetime import datetime
 from app import db
 from app.models.tag import call_tags
+from app.models.watcher import call_watchers
 
 
 class CallLog(db.Model):
@@ -46,6 +47,12 @@ class CallLog(db.Model):
         nullable=True,
         index=True
     )
+    DispositionID = db.Column(
+        db.Integer,
+        db.ForeignKey('disposition_codes.DispositionID'),
+        nullable=True,
+        index=True
+    )
     Notes = db.Column(db.Text, nullable=True)
     DateLogged = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
     LastUpdated = db.Column(
@@ -65,6 +72,11 @@ class CallLog(db.Model):
         back_populates='assigned_calls',
         foreign_keys=[AssignedTo]
     )
+    disposition = db.relationship(
+        'DispositionCode',
+        back_populates='calls',
+        foreign_keys=[DispositionID]
+    )
     activities = db.relationship(
         'CallActivity',
         back_populates='call',
@@ -78,6 +90,12 @@ class CallLog(db.Model):
         back_populates='calls',
         lazy='joined',
     )
+    watchers = db.relationship(
+        'User',
+        secondary=call_watchers,
+        lazy='joined',
+        backref=db.backref('watched_calls', lazy='dynamic'),
+    )
 
     def __repr__(self) -> str:
         return f'<CallLog {self.CallID}: {self.CallerName} [{self.Status}]>'
@@ -87,6 +105,11 @@ class CallLog(db.Model):
         if not self.FollowUpDate or self.Status in ('Resolved', 'Closed'):
             return False
         return self.FollowUpDate < datetime.utcnow()
+
+    def is_watched_by(self, user) -> bool:
+        if not user:
+            return False
+        return any(w.UserID == user.UserID for w in (self.watchers or []))
 
 
 class CallActivity(db.Model):
