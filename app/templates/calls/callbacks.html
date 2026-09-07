@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Callbacks{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Callbacks</h1>
+    <p class="page-subtitle">Follow-ups due today, overdue, or in the next 7 days</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('calls.list_calls', overdue=1) }}" class="btn btn-secondary btn-sm">All overdue</a>
+    <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Log call</a>
+  </div>
+</div>
+
+<div class="preset-chips">
+  <a href="{{ url_for('calls.callbacks', scope='all') }}" class="{% if scope == 'all' %}active{% endif %}">Upcoming</a>
+  <a href="{{ url_for('calls.callbacks', scope='today') }}" class="{% if scope == 'today' %}active{% endif %}">Today</a>
+  <a href="{{ url_for('calls.callbacks', scope='overdue') }}" class="{% if scope == 'overdue' %}active{% endif %}">Overdue</a>
+  <a href="{{ url_for('calls.callbacks', scope='mine') }}" class="{% if scope == 'mine' %}active{% endif %}">Mine</a>
+</div>
+
+<div class="table-wrap mt-3">
+  <div class="table-responsive">
+    <table class="table table-dense">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Caller</th>
+          <th>Follow-up</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th>Assigned</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in items %}
+        <tr class="{% if c.is_overdue %}is-overdue{% endif %}">
+          <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link">#{{ c.CallID }}</a>
+            {% if c.is_overdue %}<span class="badge bg-danger" style="font-size:0.65rem;">Due</span>{% endif %}
+          </td>
+          <td>
+            <div class="caller-cell">
+              <span class="caller-name">{{ c.CallerName }}</span>
+              <span class="caller-phone">{{ c.PhoneNumber }}</span>
+            </div>
+          </td>
+          <td>{{ c.FollowUpDate.strftime('%b %d · %H:%M') if c.FollowUpDate else '—' }}</td>
+          <td><span class="badge status-{{ c.Status|lower|replace(' ', '-') }}">{{ c.Status }}</span></td>
+          <td><span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span></td>
+          <td>{{ c.assignee.FullName.split()[0] if c.assignee else '—' }}</td>
+          <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="btn btn-ghost btn-sm">Open</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state"><p>No callbacks in this view.</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
