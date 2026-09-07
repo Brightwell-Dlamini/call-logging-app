@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app import db
-from app.models import CallLog, User, Tag, CannedResponse
+from app.models import CallLog, User, Tag, CannedResponse, DispositionCode
 from app.utils.decorators import login_required_active, agent_required, manager_required
 from app.utils.helpers import get_dashboard_stats, log_activity, get_recent_activity, sla_risk
 
@@ -15,7 +15,22 @@ api_bp = Blueprint('api', __name__)
 VALID_STATUS = frozenset({'Open', 'In Progress', 'Pending', 'Resolved', 'Closed'})
 VALID_PRIORITY = frozenset({'Low', 'Medium', 'High', 'Critical'})
 VALID_CALL_TYPE = frozenset({'Incoming', 'Outgoing'})
+VALID_PRESENCE = frozenset({'Available', 'Busy', 'Away', 'Offline'})
 MAX_PAGE_SIZE = 100
+
+# Map legacy UI presence values to server enum
+PRESENCE_MAP = {
+    'available': 'Available',
+    'on_call': 'Busy',
+    'break': 'Away',
+    'busy': 'Busy',
+    'away': 'Away',
+    'offline': 'Offline',
+    'Available': 'Available',
+    'Busy': 'Busy',
+    'Away': 'Away',
+    'Offline': 'Offline',
+}
 
 
 def api_error(message, status=400, **extra):
@@ -35,6 +50,7 @@ def serialize_call(c, detail=False):
         'assigned_to': c.AssignedTo,
         'sla': sla_risk(c),
         'is_overdue': bool(getattr(c, 'is_overdue', False)),
+        'disposition': c.disposition.Code if getattr(c, 'disposition', None) else None,
         'tags': [
             {'id': t.TagID, 'name': t.Name, 'colour': t.Colour}
             for t in (c.tags or [])
@@ -52,6 +68,7 @@ def serialize_call(c, detail=False):
             'follow_up_date': c.FollowUpDate.isoformat() if c.FollowUpDate else None,
             'time_spent': c.TimeSpent,
             'satisfaction': c.SatisfactionRating,
+            'watching': c.is_watched_by(current_user) if current_user.is_authenticated else False,
         })
     return data
 
@@ -113,6 +130,41 @@ def notifications():
     return jsonify({'ok': True, 'items': out, 'count': len(out)})
 
 
+@api_bp.route('/presence', methods=['GET', 'POST'])
+@login_required
+@login_required_active
+def presence():
+    """Get or set current user desk presence."""
+    if request.method == 'GET':
+        return jsonify({
+            'ok': True,
+            'presence': getattr(current_user, 'Presence', 'Available') or 'Available',
+            'user_id': current_user.UserID,
+        })
+    data = request.get_json(silent=True) or {}
+    raw = (data.get('presence') or data.get('status') or '').strip()
+    mapped = PRESENCE_MAP.get(raw) or PRESENCE_MAP.get(raw.lower())
+    if not mapped or mapped not in VALID_PRESENCE:
+        return api_error('Invalid presence', 400, allowed=sorted(VALID_PRESENCE))
+    current_user.Presence = mapped
+    db.session.commit()
+    return jsonify(ok=True, presence=mapped)
+
+
+@api_bp.route('/dispositions')
+@login_required
+@login_required_active
+def list_dispositions_api():
+    items = DispositionCode.query.filter_by(IsActive=True).order_by(DispositionCode.Label).all()
+    return jsonify({
+        'ok': True,
+        'items': [
+            {'id': d.DispositionID, 'code': d.Code, 'label': d.Label}
+            for d in items
+        ],
+    })
+
+
 @api_bp.route('/search')
 @login_required
 @login_required_active
@@ -144,7 +196,7 @@ def global_search():
         'ok': True,
         'calls': [serialize_call(c) | {'url': f'/calls/{c.CallID}'} for c in calls],
         'users': [
-            {'id': u.UserID, 'name': u.FullName, 'role': u.Role}
+            {'id': u.UserID, 'name': u.FullName, 'role': u.Role, 'presence': getattr(u, 'Presence', None)}
             for u in users
         ],
     })
@@ -279,11 +331,17 @@ def round_robin_assign():
     agents = (
         User.query.filter(
             User.IsActive == True,
-            User.Role.in_(['Agent', 'Manager', 'Admin'])
+            User.Role.in_(['Agent', 'Manager', 'Admin']),
+            User.Presence.in_(['Available', 'Busy']),
         )
         .order_by(User.UserID)
         .all()
     )
+    if not agents:
+        agents = User.query.filter(
+            User.IsActive == True,
+            User.Role.in_(['Agent', 'Manager', 'Admin']),
+        ).order_by(User.UserID).all()
     if not agents:
         return api_error('No active agents available', 400)
 
@@ -399,6 +457,14 @@ def update_call_api(call_id):
             except (TypeError, ValueError):
                 return api_error('assigned_to must be an integer user id')
         c.AssignedTo = assigned
+    if 'disposition_id' in data:
+        did = data['disposition_id'] or None
+        if did is not None:
+            try:
+                did = int(did)
+            except (TypeError, ValueError):
+                return api_error('disposition_id must be an integer')
+        c.DispositionID = did
     if 'follow_up_date' in data:
         val = data['follow_up_date']
         if not val:
@@ -495,7 +561,13 @@ def quick_action(call_id):
 def list_users_api():
     users = User.query.filter(User.IsActive == True).order_by(User.FullName).all()
     return jsonify([
-        {'id': u.UserID, 'name': u.FullName, 'role': u.Role, 'username': u.Username}
+        {
+            'id': u.UserID,
+            'name': u.FullName,
+            'role': u.Role,
+            'username': u.Username,
+            'presence': getattr(u, 'Presence', 'Available'),
+        }
         for u in users
     ])
 
