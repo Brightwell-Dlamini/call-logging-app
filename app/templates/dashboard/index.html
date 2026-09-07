@@ -19,7 +19,13 @@
     </div>
 </div>
 
-{% if stats.sla_breach %}
+{% if stats.overdue_followups %}
+<div class="crit-banner" style="border-left-color:#ef4444;">
+    <i class="fas fa-calendar-xmark"></i>
+    <div><strong>{{ stats.overdue_followups }} overdue follow-up{{ 's' if stats.overdue_followups != 1 else '' }}</strong>{% if stats.my_overdue %} · <strong>{{ stats.my_overdue }}</strong> assigned to you{% endif %} — callbacks past due.</div>
+    <a href="{{ url_for('calls.list_calls', overdue=1) }}" class="btn btn-secondary btn-sm">View overdue</a>
+</div>
+{% elif stats.sla_breach %}
 <div class="crit-banner">
     <i class="fas fa-clock"></i>
     <div><strong>{{ stats.sla_breach }} SLA breach{{ 's' if stats.sla_breach != 1 else '' }}</strong>{% if stats.sla_warn %} · {{ stats.sla_warn }} at risk{% endif %} — prioritise ageing high/critical tickets.</div>
@@ -52,13 +58,13 @@
         <div class="stat-icon amber"><i class="fas fa-user-slash"></i></div>
         <div><div class="stat-label">Unassigned pool</div><div class="stat-value">{{ stats.unassigned }}</div></div>
     </a>
+    <a href="{{ url_for('calls.list_calls', overdue=1, assigned_to=current_user.UserID) }}" class="stat-card" style="text-decoration:none;color:inherit;">
+        <div class="stat-icon rose"><i class="fas fa-calendar-xmark"></i></div>
+        <div><div class="stat-label">My overdue</div><div class="stat-value">{{ stats.my_overdue or 0 }}</div></div>
+    </a>
     <div class="stat-card">
         <div class="stat-icon green"><i class="fas fa-circle-check"></i></div>
         <div><div class="stat-label">Resolved today</div><div class="stat-value">{{ stats.resolved_today }}</div></div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon rose"><i class="fas fa-hourglass-end"></i></div>
-        <div><div class="stat-label">SLA breaches</div><div class="stat-value">{{ stats.sla_breach }}</div></div>
     </div>
     {% else %}
     <div class="stat-card">
@@ -69,10 +75,10 @@
         <div class="stat-icon amber"><i class="fas fa-folder-open"></i></div>
         <div><div class="stat-label">Open</div><div class="stat-value">{{ stats.open_calls }}</div></div>
     </a>
-    <div class="stat-card">
-        <div class="stat-icon rose"><i class="fas fa-hourglass-end"></i></div>
-        <div><div class="stat-label">SLA breaches</div><div class="stat-value">{{ stats.sla_breach }}</div></div>
-    </div>
+    <a href="{{ url_for('calls.list_calls', overdue=1) }}" class="stat-card" style="text-decoration:none;color:inherit;">
+        <div class="stat-icon rose"><i class="fas fa-calendar-xmark"></i></div>
+        <div><div class="stat-label">Overdue follow-ups</div><div class="stat-value">{{ stats.overdue_followups or 0 }}</div></div>
+    </a>
     <a href="{{ url_for('calls.list_calls', priority='High') }}" class="stat-card" style="text-decoration:none;color:inherit;">
         <div class="stat-icon indigo"><i class="fas fa-triangle-exclamation"></i></div>
         <div><div class="stat-label">High priority</div><div class="stat-value">{{ stats.high_priority }}</div></div>
@@ -113,6 +119,18 @@
             </div>
         </div>
         {% endif %}
+        {% if stats.tag_counts %}
+        <div class="table-wrap mt-3">
+            <div class="card-header"><span>Top tags</span></div>
+            <div class="p-3 d-flex flex-wrap gap-2">
+                {% for t in stats.tag_counts %}
+                <a href="{{ url_for('calls.list_calls') }}?tag={{ t.name }}" class="badge" style="background:{{ t.colour }};color:#fff;font-size:0.8rem;text-decoration:none;">
+                    {{ t.name }} · {{ t.count }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
     <div class="col-lg-4">
         <div class="table-wrap h-100">
@@ -141,8 +159,8 @@
             <thead><tr><th>ID</th><th>Caller</th><th>Status</th><th>Priority</th><th>SLA</th><th>Date</th><th></th></tr></thead>
             <tbody>
                 {% for c in stats.recent_calls %}
-                <tr class="inbox-row" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
-                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link" onclick="event.stopPropagation()">#{{ c.CallID }}</a></td>
+                <tr class="inbox-row {% if c.is_overdue %}is-overdue{% endif %}" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
+                    <td><a href="{{ url_for('calls.detail', call_id=c.CallID) }}" class="call-id-link" onclick="event.stopPropagation()">#{{ c.CallID }}</a>{% if c.is_overdue %} <span class="badge bg-danger" style="font-size:0.65rem;">Due</span>{% endif %}</td>
                     <td class="fw-medium" style="color:var(--cl-text)">{{ c.CallerName }}</td>
                     <td><span class="badge status-{{ c.Status|lower|replace(' ', '-') }}">{{ c.Status }}</span></td>
                     <td><span class="badge badge-{{ c.Priority|lower }}">{{ c.Priority }}</span></td>
