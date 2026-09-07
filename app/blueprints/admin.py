@@ -1,5 +1,5 @@
 """
-Admin blueprint: user management, departments, tags, canned responses, system audit.
+Admin blueprint: user management, departments, tags, canned responses, dispositions, system audit.
 """
 from io import StringIO
 import csv
@@ -9,8 +9,8 @@ from flask import (
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from app import db
-from app.models import User, Department, CallActivity, Tag, CannedResponse
-from app.forms.admin import UserForm, DepartmentForm, TagForm, CannedResponseForm
+from app.models import User, Department, CallActivity, Tag, CannedResponse, DispositionCode
+from app.forms.admin import UserForm, DepartmentForm, TagForm, CannedResponseForm, DispositionForm
 from app.utils.decorators import admin_required, login_required_active
 
 admin_bp = Blueprint('admin', __name__)
@@ -26,6 +26,7 @@ def index():
     dept_count = Department.query.filter_by(IsActive=True).count()
     tag_count = Tag.query.filter_by(IsActive=True).count()
     canned_count = CannedResponse.query.filter_by(IsActive=True).count()
+    disposition_count = DispositionCode.query.filter_by(IsActive=True).count()
     recent_activities = (
         CallActivity.query.options(joinedload(CallActivity.user))
         .order_by(CallActivity.ActivityDate.desc())
@@ -39,6 +40,7 @@ def index():
         dept_count=dept_count,
         tag_count=tag_count,
         canned_count=canned_count,
+        disposition_count=disposition_count,
         recent_activities=recent_activities,
         title='Admin'
     )
@@ -287,6 +289,61 @@ def edit_canned(resp_id):
         flash('Canned response updated.', 'success')
         return redirect(url_for('admin.canned'))
     return render_template('admin/canned_form.html', form=form, title='Edit Canned Response', item=item)
+
+
+# ── Disposition codes ─────────────────────────────────────────────────────────
+
+@admin_bp.route('/dispositions')
+@login_required
+@admin_required
+def dispositions():
+    items = DispositionCode.query.order_by(DispositionCode.Code).all()
+    return render_template('admin/dispositions.html', items=items, title='Disposition Codes')
+
+
+@admin_bp.route('/dispositions/new', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def new_disposition():
+    form = DispositionForm()
+    if form.validate_on_submit():
+        code = form.code.data.strip().upper()
+        if DispositionCode.query.filter_by(Code=code).first():
+            flash('Disposition code already exists.', 'danger')
+        else:
+            item = DispositionCode(
+                Code=code,
+                Label=form.label.data.strip(),
+                Description=form.description.data.strip() if form.description.data else None,
+                IsActive=form.is_active.data,
+            )
+            db.session.add(item)
+            db.session.commit()
+            flash('Disposition created.', 'success')
+            return redirect(url_for('admin.dispositions'))
+    return render_template('admin/disposition_form.html', form=form, title='New Disposition')
+
+
+@admin_bp.route('/dispositions/<int:disp_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_disposition(disp_id):
+    item = DispositionCode.query.get_or_404(disp_id)
+    form = DispositionForm()
+    if request.method == 'GET':
+        form.code.data = item.Code
+        form.label.data = item.Label
+        form.description.data = item.Description
+        form.is_active.data = item.IsActive
+    if form.validate_on_submit():
+        item.Code = form.code.data.strip().upper()
+        item.Label = form.label.data.strip()
+        item.Description = form.description.data.strip() if form.description.data else None
+        item.IsActive = form.is_active.data
+        db.session.commit()
+        flash('Disposition updated.', 'success')
+        return redirect(url_for('admin.dispositions'))
+    return render_template('admin/disposition_form.html', form=form, title='Edit Disposition', item=item)
 
 
 @admin_bp.route('/activities')
