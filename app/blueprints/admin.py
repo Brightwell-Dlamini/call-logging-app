@@ -1,6 +1,7 @@
 """
 Admin blueprint: user management, departments, tags, canned responses, dispositions, system audit.
 """
+from datetime import datetime
 from io import StringIO
 import csv
 from flask import (
@@ -9,11 +10,25 @@ from flask import (
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from app import db
-from app.models import User, Department, CallActivity, Tag, CannedResponse, DispositionCode
+from app.models import User, Department, CallActivity, Tag, CannedResponse, DispositionCode, SystemAudit
 from app.forms.admin import UserForm, DepartmentForm, TagForm, CannedResponseForm, DispositionForm
 from app.utils.decorators import admin_required, login_required_active
+from app.utils.audit import log_audit
 
 admin_bp = Blueprint('admin', __name__)
+
+
+def _audit_row(source, event_id, when, user_label, call_id, action, details, ip=None):
+    return {
+        'source': source,
+        'id': event_id,
+        'when': when,
+        'user': user_label or '—',
+        'call_id': call_id,
+        'action': action,
+        'details': details or '',
+        'ip': ip or '',
+    }
 
 
 @admin_bp.route('/')
@@ -74,6 +89,13 @@ def new_user():
         )
         user.set_password(form.password.data)
         db.session.add(user)
+        db.session.flush()
+        log_audit(
+            'user.create',
+            f'username={user.Username} role={user.Role}',
+            target_type='user',
+            target_id=user.UserID,
+        )
         db.session.commit()
         flash(f'User {user.Username} created.', 'success')
         return redirect(url_for('admin.users'))
@@ -109,8 +131,16 @@ def edit_user(user_id):
         user.FullName = form.full_name.data.strip()
         user.Role = form.role.data
         user.IsActive = form.is_active.data
+        pwd_note = ''
         if form.password.data:
             user.set_password(form.password.data)
+            pwd_note = ' password_rotated'
+        log_audit(
+            'user.update',
+            f'username={user.Username} role={user.Role} active={user.IsActive}{pwd_note}',
+            target_type='user',
+            target_id=user.UserID,
+        )
         db.session.commit()
         flash('User updated successfully.', 'success')
         return redirect(url_for('admin.users'))
@@ -127,8 +157,14 @@ def toggle_user(user_id):
         flash('You cannot deactivate your own account.', 'danger')
         return redirect(url_for('admin.users'))
     user.IsActive = not user.IsActive
-    db.session.commit()
     status = 'activated' if user.IsActive else 'deactivated'
+    log_audit(
+        'user.toggle',
+        f'username={user.Username} {status}',
+        target_type='user',
+        target_id=user.UserID,
+    )
+    db.session.commit()
     flash(f'User {user.Username} has been {status}.', 'success')
     return redirect(url_for('admin.users'))
 
@@ -158,6 +194,13 @@ def new_department():
                 IsActive=form.is_active.data
             )
             db.session.add(dept)
+            db.session.flush()
+            log_audit(
+                'department.create',
+                dept.DepartmentName,
+                target_type='department',
+                target_id=dept.DepartmentID,
+            )
             db.session.commit()
             flash('Department created.', 'success')
             return redirect(url_for('admin.departments'))
@@ -177,13 +220,17 @@ def edit_department(dept_id):
     if form.validate_on_submit():
         dept.DepartmentName = form.department_name.data.strip()
         dept.IsActive = form.is_active.data
+        log_audit(
+            'department.update',
+            f'{dept.DepartmentName} active={dept.IsActive}',
+            target_type='department',
+            target_id=dept.DepartmentID,
+        )
         db.session.commit()
         flash('Department updated.', 'success')
         return redirect(url_for('admin.departments'))
     return render_template('admin/department_form.html', form=form, title='Edit Department', dept=dept)
 
-
-# ── Tags ──────────────────────────────────────────────────────────────────────
 
 @admin_bp.route('/tags')
 @login_required
@@ -211,6 +258,8 @@ def new_tag():
                 IsActive=form.is_active.data,
             )
             db.session.add(tag)
+            db.session.flush()
+            log_audit('tag.create', tag.Name, target_type='tag', target_id=tag.TagID)
             db.session.commit()
             flash('Tag created.', 'success')
             return redirect(url_for('admin.tags'))
@@ -233,13 +282,12 @@ def edit_tag(tag_id):
         tag.Colour = form.colour.data.strip() or '#6366f1'
         tag.Description = form.description.data.strip() if form.description.data else None
         tag.IsActive = form.is_active.data
+        log_audit('tag.update', tag.Name, target_type='tag', target_id=tag.TagID)
         db.session.commit()
         flash('Tag updated.', 'success')
         return redirect(url_for('admin.tags'))
     return render_template('admin/tag_form.html', form=form, title='Edit Tag', tag=tag)
 
-
-# ── Canned Responses ──────────────────────────────────────────────────────────
 
 @admin_bp.route('/canned')
 @login_required
@@ -263,6 +311,8 @@ def new_canned():
             IsActive=form.is_active.data,
         )
         db.session.add(item)
+        db.session.flush()
+        log_audit('canned.create', item.Title, target_type='canned', target_id=item.ResponseID)
         db.session.commit()
         flash('Canned response created.', 'success')
         return redirect(url_for('admin.canned'))
@@ -285,13 +335,12 @@ def edit_canned(resp_id):
         item.Body = form.body.data.strip()
         item.Category = form.category.data.strip() if form.category.data else None
         item.IsActive = form.is_active.data
+        log_audit('canned.update', item.Title, target_type='canned', target_id=item.ResponseID)
         db.session.commit()
         flash('Canned response updated.', 'success')
         return redirect(url_for('admin.canned'))
     return render_template('admin/canned_form.html', form=form, title='Edit Canned Response', item=item)
 
-
-# ── Disposition codes ─────────────────────────────────────────────────────────
 
 @admin_bp.route('/dispositions')
 @login_required
@@ -318,6 +367,8 @@ def new_disposition():
                 IsActive=form.is_active.data,
             )
             db.session.add(item)
+            db.session.flush()
+            log_audit('disposition.create', item.Code, target_type='disposition', target_id=item.DispositionID)
             db.session.commit()
             flash('Disposition created.', 'success')
             return redirect(url_for('admin.dispositions'))
@@ -340,6 +391,7 @@ def edit_disposition(disp_id):
         item.Label = form.label.data.strip()
         item.Description = form.description.data.strip() if form.description.data else None
         item.IsActive = form.is_active.data
+        log_audit('disposition.update', item.Code, target_type='disposition', target_id=item.DispositionID)
         db.session.commit()
         flash('Disposition updated.', 'success')
         return redirect(url_for('admin.dispositions'))
@@ -350,17 +402,69 @@ def edit_disposition(disp_id):
 @login_required
 @admin_required
 def activities():
-    """System-wide activity / audit log."""
+    """Merged system + call activity audit log."""
     page = request.args.get('page', 1, type=int)
-    pagination = (
-        CallActivity.query.options(joinedload(CallActivity.user))
-        .order_by(CallActivity.ActivityDate.desc())
-        .paginate(page=page, per_page=50, error_out=False)
-    )
+    source = (request.args.get('source') or 'all').lower()
+    q = (request.args.get('q') or '').strip().lower()
+    per_page = 50
+    window = 400
+
+    rows = []
+    if source in ('all', 'system'):
+        sys_q = SystemAudit.query.options(joinedload(SystemAudit.user)).order_by(SystemAudit.CreatedAt.desc())
+        for a in sys_q.limit(window).all():
+            rows.append(_audit_row(
+                'system',
+                a.AuditID,
+                a.CreatedAt,
+                a.user.Username if a.user else '',
+                None,
+                a.Action,
+                a.Details,
+                a.IpAddress,
+            ))
+    if source in ('all', 'calls'):
+        call_q = CallActivity.query.options(joinedload(CallActivity.user)).order_by(CallActivity.ActivityDate.desc())
+        for a in call_q.limit(window).all():
+            rows.append(_audit_row(
+                'call',
+                a.ActivityID,
+                a.ActivityDate,
+                a.user.Username if a.user else '',
+                a.CallID,
+                a.Action,
+                a.Details,
+            ))
+
+    if q:
+        rows = [
+            r for r in rows
+            if q in (r['action'] or '').lower()
+            or q in (r['details'] or '').lower()
+            or q in (r['user'] or '').lower()
+            or q in str(r['call_id'] or '')
+        ]
+
+    rows.sort(key=lambda r: r['when'] or datetime.min, reverse=True)
+    total = len(rows)
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, pages))
+    start = (page - 1) * per_page
+    slice_rows = rows[start:start + per_page]
+    pagination = {
+        'page': page,
+        'pages': pages if total else 1,
+        'has_prev': page > 1,
+        'has_next': page < pages,
+        'prev_num': page - 1,
+        'next_num': page + 1,
+    }
     return render_template(
         'admin/activities.html',
-        activities=pagination.items,
+        activities=slice_rows,
         pagination=pagination,
+        source=source,
+        q=request.args.get('q') or '',
         title='Audit Log'
     )
 
@@ -369,24 +473,57 @@ def activities():
 @login_required
 @admin_required
 def activities_export():
-    """CSV export of recent audit events."""
-    rows = (
-        CallActivity.query.options(joinedload(CallActivity.user))
-        .order_by(CallActivity.ActivityDate.desc())
-        .limit(5000)
-        .all()
-    )
+    """CSV export of recent audit events from both sources."""
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['ActivityID', 'CallID', 'User', 'Action', 'Details', 'ActivityDate'])
-    for a in rows:
-        writer.writerow([
+    writer.writerow(['Source', 'ID', 'CallID', 'User', 'Action', 'Details', 'IP', 'When'])
+
+    sys_rows = (
+        SystemAudit.query.options(joinedload(SystemAudit.user))
+        .order_by(SystemAudit.CreatedAt.desc())
+        .limit(2500)
+        .all()
+    )
+    call_rows = (
+        CallActivity.query.options(joinedload(CallActivity.user))
+        .order_by(CallActivity.ActivityDate.desc())
+        .limit(2500)
+        .all()
+    )
+    merged = []
+    for a in sys_rows:
+        merged.append((
+            a.CreatedAt,
+            'system',
+            a.AuditID,
+            '',
+            a.user.Username if a.user else '',
+            a.Action,
+            a.Details or '',
+            a.IpAddress or '',
+        ))
+    for a in call_rows:
+        merged.append((
+            a.ActivityDate,
+            'call',
             a.ActivityID,
-            a.CallID,
+            a.CallID or '',
             a.user.FullName if a.user else '',
             a.Action,
             a.Details or '',
-            a.ActivityDate.isoformat() if a.ActivityDate else '',
+            '',
+        ))
+    merged.sort(key=lambda r: r[0] or datetime.min, reverse=True)
+    for when, source, eid, call_id, user, action, details, ip in merged[:5000]:
+        writer.writerow([
+            source,
+            eid,
+            call_id,
+            user,
+            action,
+            details,
+            ip,
+            when.isoformat() if when else '',
         ])
     return Response(
         output.getvalue(),

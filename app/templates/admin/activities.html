@@ -4,7 +4,7 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">Audit log</h1>
-        <p class="page-subtitle">System activity and changes</p>
+        <p class="page-subtitle">Authentication, administration, and call changes</p>
     </div>
     <div class="page-actions">
         <a href="{{ url_for('admin.activities_export') }}" class="btn btn-secondary btn-sm">
@@ -12,41 +12,52 @@
         </a>
     </div>
 </div>
-<div class="audit-filter-wrap">
-    <input type="search" id="auditFilter" class="form-control form-control-sm" placeholder="Filter this page…" autocomplete="off">
-</div>
+<form class="audit-filter-wrap d-flex gap-2 flex-wrap align-items-center mb-3" method="get" action="{{ url_for('admin.activities') }}">
+    <label class="visually-hidden" for="auditQ">Search audit events</label>
+    <input type="search" id="auditQ" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Search action, user, or details" autocomplete="off">
+    <label class="visually-hidden" for="auditSource">Source</label>
+    <select id="auditSource" name="source" class="form-select form-select-sm" style="max-width:10rem">
+        <option value="all" {% if source == 'all' %}selected{% endif %}>All sources</option>
+        <option value="system" {% if source == 'system' %}selected{% endif %}>System</option>
+        <option value="calls" {% if source == 'calls' %}selected{% endif %}>Calls</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+</form>
 <div class="table-wrap">
     <div class="table-responsive">
         <table class="table">
+            <caption class="visually-hidden">Merged system and call audit events</caption>
             <thead>
-                <tr><th>ID</th><th>Date</th><th>User</th><th>Call</th><th>Action</th><th>Details</th></tr>
+                <tr><th>Source</th><th>ID</th><th>Date</th><th>User</th><th>Call</th><th>Action</th><th>Details</th><th>IP</th></tr>
             </thead>
             <tbody>
                 {% for a in activities %}
                 <tr>
-                    <td>{{ a.ActivityID }}</td>
-                    <td>{{ a.ActivityDate.strftime('%b %d, %Y · %H:%M') if a.ActivityDate else '' }}</td>
-                    <td>{{ a.user.Username if a.user else '—' }}</td>
-                    <td>{% if a.CallID %}<a href="{{ url_for('calls.detail', call_id=a.CallID) }}">#{{ a.CallID }}</a>{% else %}—{% endif %}</td>
-                    <td class="fw-medium" style="color:var(--cl-text)">{{ a.Action }}</td>
-                    <td class="text-muted" style="font-size:0.8125rem;">{{ a.Details or '' }}</td>
+                    <td>{{ a.source }}</td>
+                    <td>{{ a.id }}</td>
+                    <td>{{ a.when.strftime('%b %d, %Y · %H:%M') if a.when else '' }}</td>
+                    <td>{{ a.user }}</td>
+                    <td>{% if a.call_id %}<a href="{{ url_for('calls.detail', call_id=a.call_id) }}">#{{ a.call_id }}</a>{% else %}—{% endif %}</td>
+                    <td class="fw-medium" style="color:var(--cl-text)">{{ a.action }}</td>
+                    <td class="text-muted" style="font-size:0.8125rem;">{{ a.details }}</td>
+                    <td class="text-muted" style="font-size:0.75rem;">{{ a.ip }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="6"><div class="empty-state"><p>No activity recorded.</p></div></td></tr>
+                <tr><td colspan="8"><div class="empty-state"><p>No activity recorded.</p></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
     {% if pagination.pages > 1 %}
     <div class="card-footer d-flex justify-content-center">
-        <nav>
+        <nav aria-label="Audit log pages">
             <ul class="pagination pagination-sm mb-0">
                 <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                    <a class="page-link" href="{{ url_for('admin.activities', page=pagination.prev_num) }}">Prev</a>
+                    <a class="page-link" href="{{ url_for('admin.activities', page=pagination.prev_num, source=source, q=q) }}">Prev</a>
                 </li>
                 <li class="page-item disabled"><span class="page-link">{{ pagination.page }} / {{ pagination.pages }}</span></li>
                 <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                    <a class="page-link" href="{{ url_for('admin.activities', page=pagination.next_num) }}">Next</a>
+                    <a class="page-link" href="{{ url_for('admin.activities', page=pagination.next_num, source=source, q=q) }}">Next</a>
                 </li>
             </ul>
         </nav>
