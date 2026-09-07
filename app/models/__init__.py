@@ -9,6 +9,7 @@ from app.models.canned import CannedResponse
 from app.models.disposition import DispositionCode
 from app.models.contact import Contact
 from app.models.watcher import call_watchers
+from app.models.audit import SystemAudit
 
 __all__ = [
     'User',
@@ -21,4 +22,5 @@ __all__ = [
     'DispositionCode',
     'Contact',
     'call_watchers',
+    'SystemAudit',
 ]

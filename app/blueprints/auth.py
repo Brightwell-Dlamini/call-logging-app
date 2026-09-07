@@ -10,6 +10,7 @@ from app import db, limiter
 from app.models import User
 from app.forms.auth import LoginForm, RegistrationForm
 from app.utils.decorators import admin_required
+from app.utils.audit import log_audit
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -48,19 +49,39 @@ def login():
     if form.validate_on_submit():
         username = form.username.data.strip()
         if _is_locked(username):
+            log_audit('auth.lockout', f'username={username}', target_type='user', target_id=username)
+            db.session.commit()
             flash('Account temporarily locked due to too many failed attempts. Try again later.', 'danger')
             return render_template('auth/login.html', form=form)
         user = User.query.filter_by(Username=username).first()
         if user is None or not user.check_password(form.password.data):
             _record_failed_attempt(username)
+            uid = user.UserID if user is not None else None
+            log_audit(
+                'auth.login_failed',
+                f'username={username}',
+                user_id=uid,
+                target_type='user',
+                target_id=username,
+            )
+            db.session.commit()
             flash('Invalid username or password.', 'danger')
             return render_template('auth/login.html', form=form)
         if not user.IsActive:
+            log_audit(
+                'auth.inactive',
+                f'username={username}',
+                user_id=user.UserID,
+                target_type='user',
+                target_id=user.UserID,
+            )
+            db.session.commit()
             flash('Your account is inactive. Contact an administrator.', 'warning')
             return render_template('auth/login.html', form=form)
         _clear_attempts(username)
         login_user(user, remember=form.remember_me.data)
         user.LastLogin = datetime.utcnow()
+        log_audit('auth.login', user_id=user.UserID, target_type='user', target_id=user.UserID)
         db.session.commit()
         session.permanent = True
         next_page = request.args.get('next')
@@ -74,6 +95,9 @@ def login():
 @auth_bp.route('/logout')
 @login_required
 def logout():
+    uid = current_user.UserID
+    log_audit('auth.logout', user_id=uid, target_type='user', target_id=uid)
+    db.session.commit()
     logout_user()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
@@ -93,6 +117,13 @@ def register():
         )
         user.set_password(form.password.data)
         db.session.add(user)
+        db.session.flush()
+        log_audit(
+            'user.create',
+            f'username={user.Username} role={user.Role}',
+            target_type='user',
+            target_id=user.UserID,
+        )
         db.session.commit()
         flash(f'User {user.Username} created successfully.', 'success')
         return redirect(url_for('admin.users'))

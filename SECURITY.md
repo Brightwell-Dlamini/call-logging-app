@@ -25,16 +25,20 @@ Use this before marking the project “production ready” or sharing credential
 | Sessions | Flask-Login + secure cookie flags in production |
 | CSRF | Flask-WTF; AJAX uses `X-CSRFToken` |
 | RBAC | Admin / Manager / Agent decorators |
-| Audit | `CallActivity` on create, assign, status, bulk |
+| Call audit | `CallActivity` on create, assign, status, bulk |
+| System audit | `SystemAudit` on login/logout/lockout and admin CRUD |
 | Injection | SQLAlchemy ORM (no raw string SQL for user input) |
 | Rate limit | Flask-Limiter on app |
 | API enums | Status, priority, and call type validated on write |
+
+Passwords are never written to audit details. Login failures record username only.
 
 ## Operational
 
 - [ ] Confirm `/health` returns `"backend": "postgres"` and `"database": "ok"`.
 - [ ] Confirm HTTPS only (Vercel provides this).
 - [ ] Repo: avoid committing `.env`, real connection strings, or production dumps.
+- [ ] Review Admin → Audit log after go-live (filter source = system).
 
 ## If credentials leaked
 
