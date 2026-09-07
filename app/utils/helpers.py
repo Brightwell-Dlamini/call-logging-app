@@ -150,7 +150,7 @@ def get_dashboard_stats(user=None):
     # Tag usage (top 8)
     try:
         tag_rows = (
-            db.session.query(Tag.Name, Tag.Colour, func.count(CallLog.CallID))
+            db.session.query(Tag.TagID, Tag.Name, Tag.Colour, func.count(CallLog.CallID))
             .join(CallLog.tags)
             .group_by(Tag.TagID, Tag.Name, Tag.Colour)
             .order_by(func.count(CallLog.CallID).desc())
@@ -158,8 +158,8 @@ def get_dashboard_stats(user=None):
             .all()
         )
         tag_counts = [
-            {'name': name, 'colour': colour, 'count': cnt}
-            for name, colour, cnt in tag_rows
+            {'id': tid, 'name': name, 'colour': colour, 'count': cnt}
+            for tid, name, colour, cnt in tag_rows
         ]
     except Exception:
         tag_counts = []
