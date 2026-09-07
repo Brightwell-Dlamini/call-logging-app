@@ -74,8 +74,11 @@
             <a href="{{ url_for('dashboard.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('dashboard') %}active{% endif %}">
                 <i class="fas fa-border-all"></i><span>Dashboard</span>
             </a>
-            <a href="{{ url_for('calls.list_calls') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('calls') and request.endpoint != 'calls.new_call' %}active{% endif %}">
+            <a href="{{ url_for('calls.list_calls') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('calls') and request.endpoint not in ['calls.new_call', 'calls.callbacks', 'calls.contact_profile'] %}active{% endif %}">
                 <i class="fas fa-phone"></i><span>Calls</span>
+            </a>
+            <a href="{{ url_for('calls.callbacks') }}" class="nav-item {% if request.endpoint == 'calls.callbacks' %}active{% endif %}">
+                <i class="fas fa-calendar-check"></i><span>Callbacks</span>
             </a>
             <a href="{{ url_for('board.kanban') }}" class="nav-item {% if request.endpoint == 'board.kanban' %}active{% endif %}">
                 <i class="fas fa-columns"></i><span>Board</span>
@@ -109,6 +112,9 @@
             <a href="{{ url_for('admin.canned') }}" class="nav-item {% if request.endpoint and 'canned' in (request.endpoint or '') %}active{% endif %}">
                 <i class="fas fa-comment-dots"></i><span>Canned</span>
             </a>
+            <a href="{{ url_for('admin.dispositions') }}" class="nav-item {% if request.endpoint and 'disposition' in (request.endpoint or '') %}active{% endif %}">
+                <i class="fas fa-list-check"></i><span>Dispositions</span>
+            </a>
             <a href="{{ url_for('admin.activities') }}" class="nav-item {% if request.endpoint == 'admin.activities' %}active{% endif %}">
                 <i class="fas fa-clock-rotate-left"></i><span>Audit log</span>
             </a>
@@ -123,11 +129,12 @@
                 <span class="avatar">{{ current_user.FullName[0]|upper }}</span>
                 <div class="user-meta">
                     <div class="user-name">{{ current_user.FullName }}</div>
-                    <div class="user-role">{{ current_user.Role }} · <span class="presence-pill" style="padding:0;background:none;text-transform:none;letter-spacing:0;"><span class="dot"></span> Online <span id="onCallTimer" class="on-call-timer" hidden></span></div>
+                    <div class="user-role">{{ current_user.Role }} · <span class="presence-pill" style="padding:0;background:none;text-transform:none;letter-spacing:0;"><span class="dot"></span> {{ current_user.Presence if current_user.Presence else 'Online' }} <span id="onCallTimer" class="on-call-timer" hidden></span></span></div>
                     <select id="presenceSelect" class="form-select presence-select" title="Your desk status" aria-label="Presence">
-                        <option value="available">Available</option>
-                        <option value="on_call">On a call</option>
-                        <option value="break">Break</option>
+                        <option value="Available" {% if current_user.Presence == 'Available' %}selected{% endif %}>Available</option>
+                        <option value="Busy" {% if current_user.Presence == 'Busy' %}selected{% endif %}>Busy</option>
+                        <option value="Away" {% if current_user.Presence == 'Away' %}selected{% endif %}>Away</option>
+                        <option value="Offline" {% if current_user.Presence == 'Offline' %}selected{% endif %}>Offline</option>
                     </select>
                 </div>
             </div>
@@ -265,6 +272,21 @@
     <script src="{{ url_for('static', filename='js/wave9.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave10.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave11.js') }}"></script>
+    <script>
+    (function(){
+      var sel = document.getElementById('presenceSelect');
+      if (!sel) return;
+      var csrf = document.querySelector('meta[name="csrf-token"]');
+      var token = csrf ? csrf.content : '';
+      sel.addEventListener('change', function(){
+        fetch('/api/presence', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRFToken': token},
+          body: JSON.stringify({presence: sel.value})
+        }).catch(function(){});
+      });
+    })();
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
