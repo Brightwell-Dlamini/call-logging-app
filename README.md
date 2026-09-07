@@ -18,13 +18,13 @@ Vercel Serverless (Python / run.py entrypoint)
     |  CSRF · Login · Rate limit · RBAC decorators
     v
 Neon Postgres (pooler URL, NullPool on Vercel)
-    tables: users, call_log, call_activity, departments, tags, call_tags, canned_responses
+    tables: users, call_log, call_activity, system_audit, departments, tags, call_tags, canned_responses
 ```
 
 | Layer | Responsibility |
 |-------|----------------|
 | **Blueprints** | `auth`, `dashboard`, `calls`, `board`, `reports`, `admin`, `api` |
-| **Models** | User (Admin/Manager/Agent), CallLog, CallActivity (audit), Department, Tag, CannedResponse |
+| **Models** | User (Admin/Manager/Agent), CallLog, CallActivity, SystemAudit, Department, Tag, CannedResponse |
 | **Security** | Flask-Login sessions, CSRF (header + form), hashed passwords, role decorators |
 | **Persistence** | `DATABASE_URL` → `postgresql+psycopg` + `sslmode=require`; SQLite fallback for local/dev |
 | **Ops UI** | Inbox + filters, kanban board, my queue, workload bars, SLA chips, tags, follow-ups |
@@ -46,7 +46,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - SLA risk chips (`ok` / `warn` / `breach`) by priority age
 - Dashboard charts (status, 7-day volume, department, tag distribution, overdue counts)
 - Reports: daily, monthly, agent, department · Excel & PDF
-- Audit log on status/assign changes
+- **Audit trail** – call changes (`CallActivity`) plus auth/admin events (`SystemAudit`)
 - **Dark mode** – system preference + manual toggle (persisted)
 - REST API under `/api/*` (session auth; mutating routes need Agent+)
 - `/health` probes DB backend (`postgres` vs `sqlite`)
@@ -116,7 +116,7 @@ With Neon: set `DATABASE_URL` in `.env` the same way as on Vercel.
 
 Docker image exposes port 8000 and includes a `/health` HEALTHCHECK.
 
-New tables (`tags`, `call_tags`, `canned_responses`) and the `FollowUpDate` column are created automatically via `db.create_all()` on startup.
+New tables (`tags`, `call_tags`, `canned_responses`, `system_audit`) and the `FollowUpDate` column are created automatically via `db.create_all()` on startup.
 
 ---
 
@@ -127,7 +127,7 @@ pip install pytest
 pytest tests/ -v
 ```
 
-Covers health, login, create call, bulk status, API stats, API validation, JSON 404s, monthly date bounds.
+Covers health, login, create call, bulk status, API stats, API validation, JSON 404s, monthly date bounds, and system audit writes.
 
 ---
 
@@ -136,10 +136,10 @@ Covers health, login, create call, bulk status, API stats, API validation, JSON 
 ```
 app/
   blueprints/   # auth, calls, board, dashboard, admin, reports, api
-  models/       # user, call, department, tag, canned
+  models/       # user, call, department, tag, canned, audit
   templates/    # shell UI + board + reports + admin
   static/       # CSS/JS design system + dark mode
-  utils/        # decorators, helpers (stats, SLA)
+  utils/        # decorators, helpers, audit writer
 config.py       # URL normalizer, NullPool
 run.py          # Vercel / local entrypoint
 tests/
