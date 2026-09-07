@@ -1,7 +1,7 @@
 """
 Call logging and management blueprint.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import StringIO
 import csv
 from flask import (
@@ -11,8 +11,11 @@ from flask import (
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app import db
-from app.models import CallLog, CallActivity, User, Department, Tag, CannedResponse
-from app.forms.calls import CallLogForm, CallUpdateForm, NoteForm, AssignForm
+from app.models import (
+    CallLog, CallActivity, User, Department, Tag, CannedResponse,
+    DispositionCode, Contact,
+)
+from app.forms.calls import CallLogForm, CallUpdateForm, NoteForm, AssignForm, ContactForm
 from app.utils.decorators import login_required_active, agent_required, admin_required
 from app.utils.helpers import log_activity
 
@@ -25,7 +28,7 @@ def _populate_agent_choices(form):
         User.Role.in_(['Agent', 'Manager', 'Admin'])
     ).order_by(User.FullName).all()
     form.assigned_to.choices = [(0, '— Unassigned —')] + [
-        (u.UserID, f'{u.FullName} ({u.Role})') for u in agents
+        (u.UserID, f'{u.FullName} ({u.Role}) · {getattr(u, "Presence", "Available")}') for u in agents
     ]
 
 
@@ -48,6 +51,27 @@ def _populate_canned_choices(form):
     ]
 
 
+def _populate_disposition_choices(form):
+    items = DispositionCode.query.filter_by(IsActive=True).order_by(DispositionCode.Label).all()
+    form.disposition_id.choices = [(0, '— None —')] + [
+        (d.DispositionID, f'{d.Code} — {d.Label}') for d in items
+    ]
+
+
+def _ensure_contact(phone: str, name: str = None):
+    phone = (phone or '').strip()
+    if not phone:
+        return None
+    contact = Contact.query.filter_by(PhoneNumber=phone).first()
+    if not contact:
+        contact = Contact(PhoneNumber=phone, DisplayName=name)
+        db.session.add(contact)
+        db.session.flush()
+    elif name and not contact.DisplayName:
+        contact.DisplayName = name
+    return contact
+
+
 @calls_bp.route('/')
 @login_required
 @login_required_active
@@ -64,6 +88,7 @@ def list_calls():
     assigned_to = request.args.get('assigned_to', type=int)
     tag_id = request.args.get('tag', type=int)
     overdue = request.args.get('overdue')
+    watching = request.args.get('watching')
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
     sort = request.args.get('sort', 'date_desc')
@@ -103,6 +128,8 @@ def list_calls():
             CallLog.FollowUpDate < datetime.utcnow(),
             CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
         )
+    if watching in ('1', 'true', 'yes'):
+        query = query.filter(CallLog.watchers.any(User.UserID == current_user.UserID))
     if mine:
         query = query.filter(CallLog.AssignedTo == current_user.UserID)
     if unassigned:
@@ -114,7 +141,6 @@ def list_calls():
             pass
     if date_to:
         try:
-            from datetime import timedelta
             query = query.filter(CallLog.DateLogged <= datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1))
         except ValueError:
             pass
@@ -149,6 +175,38 @@ def list_calls():
     )
 
 
+@calls_bp.route('/callbacks')
+@login_required
+@login_required_active
+def callbacks():
+    """Today and upcoming follow-up / callback queue."""
+    now = datetime.utcnow()
+    end = now + timedelta(days=7)
+    scope = request.args.get('scope', 'all')
+
+    q = CallLog.query.filter(
+        CallLog.FollowUpDate.isnot(None),
+        CallLog.Status.in_(['Open', 'In Progress', 'Pending']),
+    )
+    if scope == 'mine':
+        q = q.filter(CallLog.AssignedTo == current_user.UserID)
+    elif scope == 'overdue':
+        q = q.filter(CallLog.FollowUpDate < now)
+    elif scope == 'today':
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        q = q.filter(CallLog.FollowUpDate >= start, CallLog.FollowUpDate < start + timedelta(days=1))
+    else:
+        q = q.filter(CallLog.FollowUpDate <= end)
+
+    items = q.order_by(CallLog.FollowUpDate.asc()).limit(100).all()
+    return render_template(
+        'calls/callbacks.html',
+        items=items,
+        scope=scope,
+        title='Callbacks'
+    )
+
+
 @calls_bp.route('/new', methods=['GET', 'POST'])
 @login_required
 @login_required_active
@@ -161,9 +219,11 @@ def new_call():
 
     if form.validate_on_submit():
         assigned = form.assigned_to.data if form.assigned_to.data and form.assigned_to.data != 0 else None
+        phone = form.phone_number.data.strip()
+        name = form.caller_name.data.strip()
         call = CallLog(
-            CallerName=form.caller_name.data.strip(),
-            PhoneNumber=form.phone_number.data.strip(),
+            CallerName=name,
+            PhoneNumber=phone,
             Department=form.department.data or None,
             CallType=form.call_type.data,
             ReasonForCall=form.reason_for_call.data.strip(),
@@ -179,6 +239,8 @@ def new_call():
         if form.tags.data:
             selected = Tag.query.filter(Tag.TagID.in_(form.tags.data), Tag.IsActive == True).all()
             call.tags = selected
+
+        _ensure_contact(phone, name)
 
         log_activity(
             call.CallID,
@@ -211,11 +273,14 @@ def detail(call_id):
         update_form.satisfaction_rating.data = str(call.SatisfactionRating)
     if call.tags:
         update_form.tags.data = [t.TagID for t in call.tags]
+    if call.DispositionID:
+        update_form.disposition_id.data = call.DispositionID
     note_form = NoteForm()
     assign_form = AssignForm()
     _populate_agent_choices(assign_form)
     _populate_tag_choices(update_form)
     _populate_canned_choices(note_form)
+    _populate_disposition_choices(update_form)
     if call.AssignedTo:
         assign_form.assigned_to.data = call.AssignedTo
 
@@ -229,6 +294,8 @@ def detail(call_id):
         CallLog.CallID != call.CallID,
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).order_by(CallLog.DateLogged.desc()).limit(5).all()
+    contact = Contact.query.filter_by(PhoneNumber=call.PhoneNumber).first()
+    is_watching = call.is_watched_by(current_user)
 
     ctx = dict(
         call=call,
@@ -238,6 +305,8 @@ def detail(call_id):
         activities=activities,
         related_count=related_count,
         related_open=related_open,
+        contact=contact,
+        is_watching=is_watching,
         title=f'Call #{call.CallID}'
     )
     if request.args.get('partial') == '1' or request.headers.get('X-Partial') == '1':
@@ -253,6 +322,7 @@ def update_call(call_id):
     call = CallLog.query.get_or_404(call_id)
     form = CallUpdateForm()
     _populate_tag_choices(form)
+    _populate_disposition_choices(form)
     if form.validate_on_submit():
         old_status = call.Status
         call.Status = form.status.data
@@ -263,6 +333,8 @@ def update_call(call_id):
         if form.satisfaction_rating.data:
             call.SatisfactionRating = form.satisfaction_rating.data
         call.FollowUpDate = form.follow_up_date.data
+        disp = form.disposition_id.data
+        call.DispositionID = disp if disp and disp != 0 else None
         if form.tags.data is not None:
             selected = Tag.query.filter(Tag.TagID.in_(form.tags.data), Tag.IsActive == True).all()
             call.tags = selected
@@ -271,6 +343,10 @@ def update_call(call_id):
         details = f'Status changed from {old_status} to {call.Status}'
         if form.resolution.data:
             details += '; Resolution updated'
+        if call.DispositionID:
+            d = DispositionCode.query.get(call.DispositionID)
+            if d:
+                details += f'; Disposition: {d.Code}'
         log_activity(call.CallID, current_user.UserID, 'Updated', details)
         db.session.commit()
         flash('Call updated successfully.', 'success')
@@ -291,7 +367,6 @@ def add_note(call_id):
     _populate_canned_choices(form)
     if form.validate_on_submit():
         note_text = form.note.data.strip()
-        # If a canned response was selected and the note is empty or short, use canned body
         if form.canned_id.data and form.canned_id.data != 0:
             canned = CannedResponse.query.get(form.canned_id.data)
             if canned and (not note_text or len(note_text) < 5):
@@ -337,6 +412,71 @@ def assign_call(call_id):
         db.session.commit()
         flash(f'Call assigned to {new_name}.', 'success')
     return redirect(url_for('calls.detail', call_id=call_id))
+
+
+@calls_bp.route('/<int:call_id>/watch', methods=['POST'])
+@login_required
+@login_required_active
+@agent_required
+def watch_call(call_id):
+    call = CallLog.query.get_or_404(call_id)
+    if call.is_watched_by(current_user):
+        call.watchers = [w for w in call.watchers if w.UserID != current_user.UserID]
+        log_activity(call.CallID, current_user.UserID, 'Unwatched', f'{current_user.FullName} stopped watching')
+        msg = 'Removed from your watch list.'
+        watching = False
+    else:
+        call.watchers = list(call.watchers or []) + [current_user]
+        log_activity(call.CallID, current_user.UserID, 'Watching', f'{current_user.FullName} is watching')
+        msg = 'Added to your watch list.'
+        watching = True
+    db.session.commit()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.accept_mimetypes.best == 'application/json':
+        return jsonify(ok=True, watching=watching, message=msg)
+    flash(msg, 'success')
+    return redirect(url_for('calls.detail', call_id=call_id))
+
+
+@calls_bp.route('/contact/<path:phone>', methods=['GET', 'POST'])
+@login_required
+@login_required_active
+def contact_profile(phone):
+    contact = Contact.query.filter_by(PhoneNumber=phone).first()
+    if not contact:
+        contact = Contact(PhoneNumber=phone)
+        db.session.add(contact)
+        db.session.commit()
+    form = ContactForm()
+    if request.method == 'GET':
+        form.display_name.data = contact.DisplayName
+        form.email.data = contact.Email
+        form.company.data = contact.Company
+        form.notes.data = contact.Notes
+        form.is_vip.data = contact.IsVIP
+    if form.validate_on_submit():
+        contact.DisplayName = form.display_name.data.strip() if form.display_name.data else None
+        contact.Email = form.email.data.strip() if form.email.data else None
+        contact.Company = form.company.data.strip() if form.company.data else None
+        contact.Notes = form.notes.data.strip() if form.notes.data else None
+        contact.IsVIP = bool(form.is_vip.data)
+        contact.UpdatedAt = datetime.utcnow()
+        db.session.commit()
+        flash('Contact profile saved.', 'success')
+        return redirect(url_for('calls.contact_profile', phone=phone))
+
+    history = (
+        CallLog.query.filter_by(PhoneNumber=phone)
+        .order_by(CallLog.DateLogged.desc())
+        .limit(50)
+        .all()
+    )
+    return render_template(
+        'calls/contact.html',
+        contact=contact,
+        form=form,
+        history=history,
+        title=contact.DisplayName or phone,
+    )
 
 
 @calls_bp.route('/bulk', methods=['POST'])
@@ -455,15 +595,17 @@ def export_csv():
     writer = csv.writer(output)
     writer.writerow([
         'CallID', 'CallerName', 'PhoneNumber', 'Department', 'CallType',
-        'Priority', 'Status', 'AssignedTo', 'DateLogged', 'FollowUpDate',
+        'Priority', 'Status', 'AssignedTo', 'Disposition', 'DateLogged', 'FollowUpDate',
         'Tags', 'ReasonForCall', 'Resolution'
     ])
     for c in query.limit(5000).all():
         tag_names = ', '.join(t.Name for t in (c.tags or []))
+        disp = c.disposition.Code if c.disposition else ''
         writer.writerow([
             c.CallID, c.CallerName, c.PhoneNumber, c.Department or '', c.CallType,
             c.Priority, c.Status,
             c.assignee.FullName if c.assignee else '',
+            disp,
             c.DateLogged.isoformat() if c.DateLogged else '',
             c.FollowUpDate.isoformat() if c.FollowUpDate else '',
             tag_names,
