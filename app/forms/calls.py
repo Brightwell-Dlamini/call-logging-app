@@ -2,9 +2,9 @@
 from flask_wtf import FlaskForm
 from wtforms import (
     StringField, TextAreaField, SelectField, SubmitField,
-    IntegerField, DateTimeLocalField, SelectMultipleField
+    IntegerField, DateTimeLocalField, SelectMultipleField, BooleanField
 )
-from wtforms.validators import DataRequired, Length, Optional, NumberRange
+from wtforms.validators import DataRequired, Length, Optional, NumberRange, Email
 
 
 class CallLogForm(FlaskForm):
@@ -74,6 +74,11 @@ class CallUpdateForm(FlaskForm):
         ],
         validators=[DataRequired()]
     )
+    disposition_id = SelectField(
+        'Disposition',
+        coerce=int,
+        validators=[Optional()]
+    )
     resolution = TextAreaField('Resolution', validators=[Optional()])
     time_spent = IntegerField(
         'Time Spent (minutes)',
@@ -127,3 +132,28 @@ class AssignForm(FlaskForm):
         validators=[DataRequired()]
     )
     submit = SubmitField('Assign')
+
+
+class ContactForm(FlaskForm):
+    """Edit contact profile."""
+    display_name = StringField('Display name', validators=[Optional(), Length(max=120)])
+    email = StringField('Email', validators=[Optional(), Email(), Length(max=120)])
+    company = StringField('Company', validators=[Optional(), Length(max=120)])
+    notes = TextAreaField('Notes', validators=[Optional()])
+    is_vip = BooleanField('VIP customer')
+    submit = SubmitField('Save contact')
+
+
+class PresenceForm(FlaskForm):
+    """Agent presence toggle."""
+    presence = SelectField(
+        'Status',
+        choices=[
+            ('Available', 'Available'),
+            ('Busy', 'Busy'),
+            ('Away', 'Away'),
+            ('Offline', 'Offline'),
+        ],
+        validators=[DataRequired()]
+    )
+    submit = SubmitField('Update')
