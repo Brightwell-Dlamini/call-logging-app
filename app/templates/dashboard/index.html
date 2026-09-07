@@ -124,7 +124,7 @@
             <div class="card-header"><span>Top tags</span></div>
             <div class="p-3 d-flex flex-wrap gap-2">
                 {% for t in stats.tag_counts %}
-                <a href="{{ url_for('calls.list_calls') }}?tag={{ t.name }}" class="badge" style="background:{{ t.colour }};color:#fff;font-size:0.8rem;text-decoration:none;">
+                <a href="{{ url_for('calls.list_calls', tag=t.id) }}" class="badge" style="background:{{ t.colour }};color:#fff;font-size:0.8rem;text-decoration:none;">
                     {{ t.name }} · {{ t.count }}
                 </a>
                 {% endfor %}
