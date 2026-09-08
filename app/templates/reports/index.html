@@ -10,26 +10,27 @@
 
 <div class="report-hub">
     <div class="report-card">
-        <div class="stat-icon blue"><i class="fas fa-calendar-day"></i></div>
+        <div class="stat-icon blue" aria-hidden="true"><i class="fas fa-calendar-day"></i></div>
         <h3>Daily summary</h3>
         <p>Calls logged for a specific day with status breakdown.</p>
         <form method="GET" action="{{ url_for('reports.daily') }}" class="d-flex gap-2 mt-2">
-            <input type="date" name="date" class="form-control form-control-sm" style="max-width:150px;">
-            <button class="btn btn-primary btn-sm">View</button>
+            <label class="visually-hidden" for="report-date">Report date</label>
+            <input type="date" id="report-date" name="date" class="form-control form-control-sm" style="max-width:150px;">
+            <button type="submit" class="btn btn-primary btn-sm">View</button>
         </form>
     </div>
     <a href="{{ url_for('reports.monthly') }}" class="report-card">
-        <div class="stat-icon violet"><i class="fas fa-chart-column"></i></div>
+        <div class="stat-icon violet" aria-hidden="true"><i class="fas fa-chart-column"></i></div>
         <h3>Monthly summary</h3>
         <p>Status, type, and priority breakdowns for the month.</p>
     </a>
     <a href="{{ url_for('reports.agent_performance') }}" class="report-card">
-        <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
+        <div class="stat-icon green" aria-hidden="true"><i class="fas fa-user-check"></i></div>
         <h3>Agent performance</h3>
         <p>Resolution rates, volume, and satisfaction by agent.</p>
     </a>
     <a href="{{ url_for('reports.by_department') }}" class="report-card">
-        <div class="stat-icon amber"><i class="fas fa-building"></i></div>
+        <div class="stat-icon amber" aria-hidden="true"><i class="fas fa-building"></i></div>
         <h3>By department</h3>
         <p>Where demand is concentrated across the organization.</p>
     </a>

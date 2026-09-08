@@ -8,7 +8,7 @@
     </div>
     <div class="page-actions">
         <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
-            <i class="fas fa-arrow-left"></i> Reports
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Reports
         </a>
     </div>
 </div>
@@ -16,16 +16,17 @@
 <div class="table-wrap">
     <div class="table-responsive">
         <table class="table">
+            <caption class="visually-hidden">Calls logged on {{ selected_date }}</caption>
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Caller</th>
-                    <th>Phone</th>
-                    <th>Dept</th>
-                    <th>Type</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Time</th>
+                    <th scope="col">ID</th>
+                    <th scope="col">Caller</th>
+                    <th scope="col">Phone</th>
+                    <th scope="col">Dept</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Time</th>
                 </tr>
             </thead>
             <tbody>
@@ -44,7 +45,7 @@
                 <tr>
                     <td colspan="8">
                         <div class="empty-state">
-                            <div class="empty-icon"><i class="fas fa-calendar"></i></div>
+                            <div class="empty-icon" aria-hidden="true"><i class="fas fa-calendar"></i></div>
                             <p>No calls on this date.</p>
                         </div>
                     </td>

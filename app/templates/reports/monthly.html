@@ -8,7 +8,7 @@
     </div>
     <div class="page-actions">
         <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
-            <i class="fas fa-arrow-left"></i> Reports
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Reports
         </a>
     </div>
 </div>
@@ -16,29 +16,29 @@
 <div class="filter-bar mb-4">
     <form method="GET" class="row align-items-end g-2">
         <div class="col-auto">
-            <label class="form-label">Year</label>
-            <input type="number" name="year" value="{{ year }}" class="form-control" min="2020" max="2030" style="width:100px;">
+            <label class="form-label" for="report-year">Year</label>
+            <input type="number" id="report-year" name="year" value="{{ year }}" class="form-control" min="2020" max="2030" style="width:100px;">
         </div>
         <div class="col-auto">
-            <label class="form-label">Month</label>
-            <input type="number" name="month" value="{{ month }}" class="form-control" min="1" max="12" style="width:80px;">
+            <label class="form-label" for="report-month">Month</label>
+            <input type="number" id="report-month" name="month" value="{{ month }}" class="form-control" min="1" max="12" style="width:80px;">
         </div>
         <div class="col-auto">
-            <button class="btn btn-primary">Update</button>
+            <button type="submit" class="btn btn-primary">Update</button>
         </div>
     </form>
 </div>
 
 <div class="stat-grid" style="grid-template-columns: repeat(2, 1fr); max-width: 480px;">
     <div class="stat-card">
-        <div class="stat-icon blue"><i class="fas fa-phone"></i></div>
+        <div class="stat-icon blue" aria-hidden="true"><i class="fas fa-phone"></i></div>
         <div>
             <div class="stat-label">Total calls</div>
             <div class="stat-value">{{ total }}</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon violet"><i class="fas fa-clock"></i></div>
+        <div class="stat-icon violet" aria-hidden="true"><i class="fas fa-clock"></i></div>
         <div>
             <div class="stat-label">Avg time (min)</div>
             <div class="stat-value">{{ avg_time }}</div>
