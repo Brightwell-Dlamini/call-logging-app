@@ -48,6 +48,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - Reports: daily, monthly, agent, department · Excel & PDF
 - **Audit trail** – call changes (`CallActivity`) plus auth/admin events (`SystemAudit`)
 - **Dark mode** – system preference + manual toggle (persisted)
+- **Accessibility** – skip link to `#mainContent`, labelled report filters, table captions, `aria-current` on the active nav item, `prefers-reduced-motion`
 - REST API under `/api/*` (session auth; mutating routes need Agent+)
 - `/health` probes DB backend (`postgres` vs `sqlite`)
 
@@ -127,7 +128,7 @@ pip install pytest
 pytest tests/ -v
 ```
 
-Covers health, login, create call, bulk status, API stats, API validation, JSON 404s, monthly date bounds, and system audit writes.
+Covers health, login, create call, bulk status, API stats, API validation, JSON 404s, monthly date bounds, system audit writes, skip-link and report form labels.
 
 ---
 
