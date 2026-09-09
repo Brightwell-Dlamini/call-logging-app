@@ -4,7 +4,7 @@ Call Logging Application factory.
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -27,6 +27,13 @@ def _is_production():
         os.environ.get('FLASK_ENV') == 'production'
         or os.environ.get('VERCEL_ENV') == 'production'
     )
+
+
+def _wants_json():
+    if request.path.startswith('/api/'):
+        return True
+    accept = (request.headers.get('Accept') or '').lower()
+    return 'application/json' in accept and 'text/html' not in accept
 
 
 def create_app(config_name=None):
@@ -52,6 +59,12 @@ def create_app(config_name=None):
     login_manager.login_message_category = 'warning'
     login_manager.session_protection = 'strong'
 
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        if _wants_json():
+            return jsonify({'ok': False, 'error': 'Authentication required'}), 401
+        return redirect(url_for('auth.login', next=request.path))
+
     from app.blueprints.auth import auth_bp
     from app.blueprints.dashboard import dashboard_bp
     from app.blueprints.calls import calls_bp
@@ -70,15 +83,27 @@ def create_app(config_name=None):
 
     @app.errorhandler(404)
     def not_found_error(error):
+        if _wants_json():
+            return jsonify({'ok': False, 'error': 'Not found'}), 404
         return render_template('errors/404.html'), 404
 
     @app.errorhandler(403)
     def forbidden_error(error):
+        if _wants_json():
+            return jsonify({'ok': False, 'error': 'Forbidden'}), 403
         return render_template('errors/403.html'), 403
+
+    @app.errorhandler(429)
+    def ratelimit_error(error):
+        if _wants_json():
+            return jsonify({'ok': False, 'error': 'Too many requests'}), 429
+        return render_template('errors/403.html'), 429
 
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
+        if _wants_json():
+            return jsonify({'ok': False, 'error': 'Internal server error'}), 500
         return render_template('errors/500.html'), 500
 
     @app.route('/favicon.ico')
