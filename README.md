@@ -63,7 +63,7 @@ Session cookie required (same as the web UI). Send CSRF token on POST/PUT/PATCH 
 |--------|------|-------|
 | GET | `/api/dashboard/stats` | Includes overdue, tag_counts, avg_handle_mins, SLA |
 | GET | `/api/calls` | Optional `status`, `tag`, `overdue`, `page`, `per_page` |
-| POST | `/api/calls` | Supports `tag_ids`, `follow_up_date` |
+| POST | `/api/calls` | Supports `tag_ids`, `follow_up_date`; phone and assignee validated |
 | GET | `/api/calls/<id>` | Full detail including tags and follow-up |
 | PATCH | `/api/calls/<id>` | Status / priority / assign / tags / follow-up |
 | POST | `/api/calls/<id>/quick` | `claim` \| `resolve` \| `escalate` |
@@ -73,6 +73,10 @@ Session cookie required (same as the web UI). Send CSRF token on POST/PUT/PATCH 
 | GET | `/api/phone-lookup?phone=` | Recent matches |
 
 Error shape: `{ "ok": false, "error": "..." }` plus optional `missing` / `allowed`.
+CSRF failures on `/api/*` use the same JSON shape rather than an HTML 400 page.
+
+Phone numbers must be 7–30 characters of digits with optional `+`, spaces, parentheses, or dashes.
+`assigned_to` must reference an active user.
 
 ---
 
@@ -139,7 +143,7 @@ app/
   models/       # user, call, department, tag, canned, audit
   templates/    # shell UI + board + reports + admin
   static/       # CSS/JS design system + dark mode
-  utils/        # decorators, helpers, audit writer
+  utils/        # decorators, helpers, audit writer, field validators
 config.py       # URL normalizer, NullPool
 run.py          # Vercel / local entrypoint
 tests/
