@@ -9,6 +9,9 @@ from app import db
 from app.models import CallLog, User, Tag, CannedResponse, DispositionCode
 from app.utils.decorators import login_required_active, agent_required, manager_required
 from app.utils.helpers import get_dashboard_stats, log_activity, get_recent_activity, sla_risk
+from app.utils.validators import (
+    is_valid_phone, MAX_NOTES, MAX_REASON, MAX_RESOLUTION,
+)
 
 api_bp = Blueprint('api', __name__)
 
@@ -280,30 +283,48 @@ def create_call_api():
         return api_error('Invalid call_type', 400, allowed=sorted(VALID_CALL_TYPE))
     if priority not in VALID_PRIORITY:
         return api_error('Invalid priority', 400, allowed=sorted(VALID_PRIORITY))
+
+    phone = str(data['phone_number']).strip()[:30]
+    if not is_valid_phone(phone):
+        return api_error('Invalid phone_number')
+    reason = str(data['reason_for_call']).strip()
+    if len(reason) < 5:
+        return api_error('reason_for_call is too short')
+    if len(reason) > MAX_REASON:
+        return api_error('reason_for_call exceeds maximum length')
+    notes = data.get('notes')
+    if notes is not None:
+        notes = str(notes)
+        if len(notes) > MAX_NOTES:
+            return api_error('notes exceeds maximum length')
+
     assigned = data.get('assigned_to') or None
     if assigned is not None:
         try:
             assigned = int(assigned)
         except (TypeError, ValueError):
             return api_error('assigned_to must be an integer user id')
+        agent = User.query.filter_by(UserID=assigned, IsActive=True).first()
+        if agent is None:
+            return api_error('assigned_to user not found or inactive')
 
     follow_up = None
     if data.get('follow_up_date'):
         try:
             follow_up = datetime.fromisoformat(str(data['follow_up_date']).replace('Z', '+00:00'))
         except ValueError:
-            pass
+            return api_error('Invalid follow_up_date format')
 
     call = CallLog(
         CallerName=str(data['caller_name']).strip()[:120],
-        PhoneNumber=str(data['phone_number']).strip()[:30],
+        PhoneNumber=phone,
         Department=(str(data['department']).strip()[:50] if data.get('department') else None),
         CallType=call_type,
-        ReasonForCall=str(data['reason_for_call']).strip(),
+        ReasonForCall=reason,
         Priority=priority,
         Status='Open',
         AssignedTo=assigned,
-        Notes=data.get('notes'),
+        Notes=notes,
         FollowUpDate=follow_up,
     )
     db.session.add(call)
@@ -316,7 +337,7 @@ def create_call_api():
             tags = Tag.query.filter(Tag.TagID.in_(tag_ids), Tag.IsActive == True).all()
             call.tags = tags
         except (TypeError, ValueError):
-            pass
+            return api_error('Invalid tag_ids')
 
     log_activity(call.CallID, current_user.UserID, 'Created', 'Via API')
     db.session.commit()
@@ -446,9 +467,15 @@ def update_call_api(call_id):
             return api_error('Invalid priority', 400, allowed=sorted(VALID_PRIORITY))
         c.Priority = data['priority']
     if 'resolution' in data:
-        c.Resolution = data['resolution']
+        resolution = data['resolution']
+        if resolution is not None and len(str(resolution)) > MAX_RESOLUTION:
+            return api_error('resolution exceeds maximum length')
+        c.Resolution = resolution
     if 'notes' in data:
-        c.Notes = data['notes']
+        notes = data['notes']
+        if notes is not None and len(str(notes)) > MAX_NOTES:
+            return api_error('notes exceeds maximum length')
+        c.Notes = notes
     if 'assigned_to' in data:
         assigned = data['assigned_to'] or None
         if assigned is not None:
@@ -456,6 +483,9 @@ def update_call_api(call_id):
                 assigned = int(assigned)
             except (TypeError, ValueError):
                 return api_error('assigned_to must be an integer user id')
+            agent = User.query.filter_by(UserID=assigned, IsActive=True).first()
+            if agent is None:
+                return api_error('assigned_to user not found or inactive')
         c.AssignedTo = assigned
     if 'disposition_id' in data:
         did = data['disposition_id'] or None
