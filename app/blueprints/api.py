@@ -258,9 +258,17 @@ def list_calls_api():
     page, per_page = _page_args()
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
     items = [serialize_call(c) for c in pagination.items]
-    resp = jsonify(items)
+    resp = jsonify({
+        'ok': True,
+        'items': items,
+        'page': page,
+        'per_page': per_page,
+        'pages': pagination.pages,
+        'total': pagination.total,
+    })
     resp.headers['X-Total-Count'] = str(pagination.total)
     resp.headers['X-Page'] = str(page)
+    resp.headers['X-Per-Page'] = str(per_page)
     return resp
 
 
@@ -292,7 +300,7 @@ def create_call_api():
         try:
             follow_up = datetime.fromisoformat(str(data['follow_up_date']).replace('Z', '+00:00'))
         except ValueError:
-            pass
+            return api_error('Invalid follow_up_date format')
 
     call = CallLog(
         CallerName=str(data['caller_name']).strip()[:120],
@@ -398,7 +406,7 @@ def claim_next():
         .first()
     )
     if call is None:
-        return jsonify(ok=False, message='No unassigned calls in the pool')
+        return api_error('No unassigned calls in the pool', 404)
 
     call.AssignedTo = current_user.UserID
     if call.Status == 'Open':
@@ -560,16 +568,20 @@ def quick_action(call_id):
 @login_required_active
 def list_users_api():
     users = User.query.filter(User.IsActive == True).order_by(User.FullName).all()
-    return jsonify([
-        {
-            'id': u.UserID,
-            'name': u.FullName,
-            'role': u.Role,
-            'username': u.Username,
-            'presence': getattr(u, 'Presence', 'Available'),
-        }
-        for u in users
-    ])
+    return jsonify({
+        'ok': True,
+        'items': [
+            {
+                'id': u.UserID,
+                'name': u.FullName,
+                'role': u.Role,
+                'username': u.Username,
+                'presence': getattr(u, 'Presence', 'Available'),
+            }
+            for u in users
+        ],
+        'total': len(users),
+    })
 
 
 @api_bp.route('/reports/daily')
