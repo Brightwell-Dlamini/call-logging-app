@@ -28,10 +28,13 @@ Use this before marking the project “production ready” or sharing credential
 | Call audit | `CallActivity` on create, assign, status, bulk |
 | System audit | `SystemAudit` on login/logout/lockout and admin CRUD |
 | Injection | SQLAlchemy ORM (no raw string SQL for user input) |
-| Rate limit | Flask-Limiter on app |
+| Rate limit | Flask-Limiter on login (`10/min`) and app defaults |
+| Login lockout | After `MAX_LOGIN_ATTEMPTS` (default 5) failures, lock `LOGIN_LOCKOUT_MINUTES` (default 15) |
 | API enums | Status, priority, and call type validated on write |
 
 Passwords are never written to audit details. Login failures record username only.
+
+**Lockout caveat:** failed-attempt state is in-process memory. On Vercel each serverless isolate has its own map, so lockout is a complement to rate limiting, not a cluster-wide ban. Flask-Limiter still caps login POSTs per client IP.
 
 ## Operational
 
@@ -39,6 +42,7 @@ Passwords are never written to audit details. Login failures record username onl
 - [ ] Confirm HTTPS only (Vercel provides this).
 - [ ] Repo: avoid committing `.env`, real connection strings, or production dumps.
 - [ ] Review Admin → Audit log after go-live (filter source = system).
+- [ ] CI: GitHub Actions `Tests` workflow should be green on `main`.
 
 ## If credentials leaked
 
