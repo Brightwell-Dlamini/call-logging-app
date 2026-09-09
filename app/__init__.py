@@ -11,7 +11,7 @@ from flask_migrate import Migrate
 from flask_caching import Cache
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from config import config
 
 db = SQLAlchemy()
@@ -80,6 +80,20 @@ def create_app(config_name=None):
     def internal_error(error):
         db.session.rollback()
         return render_template('errors/500.html'), 500
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(error):
+        wants_json = (
+            request.path.startswith('/api/')
+            or request.is_json
+            or request.accept_mimetypes.best == 'application/json'
+        )
+        if wants_json:
+            return {
+                'ok': False,
+                'error': 'CSRF token missing or invalid',
+            }, 400
+        return render_template('errors/403.html'), 400
 
     @app.route('/favicon.ico')
     def favicon():
