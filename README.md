@@ -114,7 +114,16 @@ Open http://127.0.0.1:5000
 
 With Neon: set `DATABASE_URL` in `.env` the same way as on Vercel.
 
-Docker image exposes port 8000 and includes a `/health` HEALTHCHECK.
+### Docker
+
+Image exposes port 8000 and includes a `/health` HEALTHCHECK.
+
+```bash
+docker compose up --build
+# http://127.0.0.1:8000
+```
+
+Pass `SECRET_KEY` and `DATABASE_URL` via the environment or a local `.env` file. Leave `ENABLE_SEED` unset in production-like runs.
 
 New tables (`tags`, `call_tags`, `canned_responses`, `system_audit`) and the `FollowUpDate` column are created automatically via `db.create_all()` on startup.
 
@@ -123,11 +132,13 @@ New tables (`tags`, `call_tags`, `canned_responses`, `system_audit`) and the `Fo
 ## Tests
 
 ```bash
-pip install pytest
+pip install -r requirements.txt
 pytest tests/ -v
 ```
 
-Covers health, login, create call, bulk status, API stats, API validation, JSON 404s, monthly date bounds, and system audit writes.
+Covers health, login (including lockout and open-redirect rejection), create call, bulk status, API stats, API validation, JSON 404s, monthly date bounds, system audit writes, and `/seed` token gating.
+
+GitHub Actions (`.github/workflows/tests.yml`) runs the same suite on pushes and pull requests to `main`.
 
 ---
 
@@ -143,6 +154,8 @@ app/
 config.py       # URL normalizer, NullPool
 run.py          # Vercel / local entrypoint
 tests/
+.github/workflows/tests.yml
+docker-compose.yml
 DEMO.md
 ```
 
