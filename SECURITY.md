@@ -23,13 +23,15 @@ Use this before marking the project “production ready” or sharing credential
 |---------|----------------|
 | Password hashing | `pbkdf2:sha256` via Werkzeug |
 | Sessions | Flask-Login + secure cookie flags in production |
-| CSRF | Flask-WTF; AJAX uses `X-CSRFToken` |
+| CSRF | Flask-WTF; AJAX uses `X-CSRFToken`. API/JSON clients receive `{ "ok": false, "error": "CSRF token missing or invalid" }` |
+| Field validation | Shared helpers in `app/utils/validators.py` (phone, username, hex colour, disposition code, text length caps) |
 | RBAC | Admin / Manager / Agent decorators |
 | Call audit | `CallActivity` on create, assign, status, bulk |
 | System audit | `SystemAudit` on login/logout/lockout and admin CRUD |
 | Injection | SQLAlchemy ORM (no raw string SQL for user input) |
 | Rate limit | Flask-Limiter on app |
 | API enums | Status, priority, and call type validated on write |
+| API assignees | `assigned_to` must be an active user id |
 
 Passwords are never written to audit details. Login failures record username only.
 
