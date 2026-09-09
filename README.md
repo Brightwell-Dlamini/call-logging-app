@@ -59,14 +59,26 @@ Reports and inbox filters use range predicates on `DateLogged` plus composite in
 
 Session cookie required (same as the web UI). Send CSRF token on POST/PUT/PATCH via `X-CSRFToken`.
 
+Unauthenticated `/api/*` requests return **401** JSON `{ "ok": false, "error": "Authentication required" }` rather than an HTML login redirect. Forbidden and missing API routes use the same `{ ok, error }` shape.
+
+List endpoints return an envelope, not a bare array:
+
+```json
+{ "ok": true, "items": [ … ], "page": 1, "per_page": 50, "pages": 1, "total": 0 }
+```
+
+`GET /api/calls` also sets `X-Total-Count`, `X-Page`, and `X-Per-Page`.
+
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/api/dashboard/stats` | Includes overdue, tag_counts, avg_handle_mins, SLA |
-| GET | `/api/calls` | Optional `status`, `tag`, `overdue`, `page`, `per_page` |
-| POST | `/api/calls` | Supports `tag_ids`, `follow_up_date` |
+| GET | `/api/calls` | Envelope; optional `status`, `tag`, `overdue`, `page`, `per_page` |
+| POST | `/api/calls` | Supports `tag_ids`, `follow_up_date` (ISO-8601; invalid dates → 400) |
 | GET | `/api/calls/<id>` | Full detail including tags and follow-up |
 | PATCH | `/api/calls/<id>` | Status / priority / assign / tags / follow-up |
-| POST | `/api/calls/<id>/quick` | `claim` \| `resolve` \| `escalate` |
+| POST | `/api/calls/<id>/quick` | `claim` \| `resolve` \| `escalate` \| `pending` \| `reopen` |
+| POST | `/api/calls/claim-next` | 404 JSON when the pool is empty |
+| GET | `/api/users` | `{ ok, items, total }` |
 | GET | `/api/tags` | Active tags |
 | GET | `/api/canned` | Active canned responses |
 | GET | `/api/search?q=` | Calls + users |
@@ -127,7 +139,7 @@ pip install pytest
 pytest tests/ -v
 ```
 
-Covers health, login, create call, bulk status, API stats, API validation, JSON 404s, monthly date bounds, and system audit writes.
+Covers health, login, create call, bulk status, API stats, API validation, list envelopes, JSON 401/404s, monthly date bounds, and system audit writes.
 
 ---
 
