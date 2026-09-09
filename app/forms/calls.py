@@ -5,6 +5,7 @@ from wtforms import (
     IntegerField, DateTimeLocalField, SelectMultipleField, BooleanField
 )
 from wtforms.validators import DataRequired, Length, Optional, NumberRange, Email
+from app.utils.validators import PhoneNumber, MAX_NOTES, MAX_REASON, MAX_RESOLUTION
 
 
 class CallLogForm(FlaskForm):
@@ -15,7 +16,7 @@ class CallLogForm(FlaskForm):
     )
     phone_number = StringField(
         'Phone Number',
-        validators=[DataRequired(), Length(min=7, max=30)]
+        validators=[DataRequired(), Length(min=7, max=30), PhoneNumber()]
     )
     department = SelectField(
         'Department',
@@ -29,7 +30,7 @@ class CallLogForm(FlaskForm):
     )
     reason_for_call = TextAreaField(
         'Reason for Call',
-        validators=[DataRequired(), Length(min=5)]
+        validators=[DataRequired(), Length(min=5, max=MAX_REASON)]
     )
     priority = SelectField(
         'Priority',
@@ -57,7 +58,7 @@ class CallLogForm(FlaskForm):
         format='%Y-%m-%dT%H:%M',
         validators=[Optional()]
     )
-    notes = TextAreaField('Notes', validators=[Optional()])
+    notes = TextAreaField('Notes', validators=[Optional(), Length(max=MAX_NOTES)])
     submit = SubmitField('Log Call')
 
 
@@ -79,7 +80,10 @@ class CallUpdateForm(FlaskForm):
         coerce=int,
         validators=[Optional()]
     )
-    resolution = TextAreaField('Resolution', validators=[Optional()])
+    resolution = TextAreaField(
+        'Resolution',
+        validators=[Optional(), Length(max=MAX_RESOLUTION)]
+    )
     time_spent = IntegerField(
         'Time Spent (minutes)',
         validators=[Optional(), NumberRange(min=0, max=10000)]
@@ -114,7 +118,7 @@ class NoteForm(FlaskForm):
     """Form for appending notes to a call."""
     note = TextAreaField(
         'Add Note',
-        validators=[DataRequired(), Length(min=3)]
+        validators=[DataRequired(), Length(min=3, max=MAX_NOTES)]
     )
     canned_id = SelectField(
         'Insert Canned Response',
@@ -139,7 +143,7 @@ class ContactForm(FlaskForm):
     display_name = StringField('Display name', validators=[Optional(), Length(max=120)])
     email = StringField('Email', validators=[Optional(), Email(), Length(max=120)])
     company = StringField('Company', validators=[Optional(), Length(max=120)])
-    notes = TextAreaField('Notes', validators=[Optional()])
+    notes = TextAreaField('Notes', validators=[Optional(), Length(max=MAX_NOTES)])
     is_vip = BooleanField('VIP customer')
     submit = SubmitField('Save contact')
 

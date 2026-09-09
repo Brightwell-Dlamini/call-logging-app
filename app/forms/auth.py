@@ -3,6 +3,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
 from app.models import User
+from app.utils.validators import UsernameChars
 
 
 class LoginForm(FlaskForm):
@@ -23,7 +24,7 @@ class RegistrationForm(FlaskForm):
     """Admin-only user registration form."""
     username = StringField(
         'Username',
-        validators=[DataRequired(), Length(min=3, max=80)]
+        validators=[DataRequired(), Length(min=3, max=80), UsernameChars()]
     )
     email = StringField(
         'Email',
@@ -35,7 +36,7 @@ class RegistrationForm(FlaskForm):
     )
     password = PasswordField(
         'Password',
-        validators=[DataRequired(), Length(min=8)]
+        validators=[DataRequired(), Length(min=8, max=128)]
     )
     password2 = PasswordField(
         'Confirm Password',

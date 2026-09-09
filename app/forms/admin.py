@@ -3,13 +3,14 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, BooleanField, SubmitField, PasswordField, TextAreaField
 from wtforms.validators import DataRequired, Email, Length, Optional, EqualTo, ValidationError
 from app.models import User, Department
+from app.utils.validators import UsernameChars, HexColour, DispositionCodeChars, MAX_NOTES
 
 
 class UserForm(FlaskForm):
     """Create or edit user form."""
     username = StringField(
         'Username',
-        validators=[DataRequired(), Length(min=3, max=80)]
+        validators=[DataRequired(), Length(min=3, max=80), UsernameChars()]
     )
     email = StringField(
         'Email',
@@ -21,7 +22,7 @@ class UserForm(FlaskForm):
     )
     password = PasswordField(
         'Password',
-        validators=[Optional(), Length(min=8)]
+        validators=[Optional(), Length(min=8, max=128)]
     )
     password2 = PasswordField(
         'Confirm Password',
@@ -63,7 +64,7 @@ class TagForm(FlaskForm):
     )
     colour = StringField(
         'Colour (hex)',
-        validators=[DataRequired(), Length(min=4, max=7)],
+        validators=[DataRequired(), Length(min=4, max=7), HexColour()],
         default='#6366f1'
     )
     description = StringField(
@@ -82,7 +83,7 @@ class CannedResponseForm(FlaskForm):
     )
     body = TextAreaField(
         'Body',
-        validators=[DataRequired(), Length(min=5)]
+        validators=[DataRequired(), Length(min=5, max=MAX_NOTES)]
     )
     category = StringField(
         'Category',
@@ -96,7 +97,7 @@ class DispositionForm(FlaskForm):
     """Create or edit disposition code."""
     code = StringField(
         'Code',
-        validators=[DataRequired(), Length(min=2, max=40)]
+        validators=[DataRequired(), Length(min=2, max=40), DispositionCodeChars()]
     )
     label = StringField(
         'Label',
