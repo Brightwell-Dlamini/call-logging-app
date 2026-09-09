@@ -102,6 +102,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     WTF_CSRF_ENABLED = False
     CACHE_TYPE = 'NullCache'
+    RATELIMIT_ENABLED = False
 
 
 config = {
