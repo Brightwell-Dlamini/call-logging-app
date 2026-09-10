@@ -28,7 +28,7 @@ Neon Postgres (pooler URL, NullPool on Vercel)
 | **Blueprints** | `auth`, `dashboard`, `calls`, `board`, `reports`, `admin`, `api`, `api_extras` |
 | **Models** | User, CallLog, CallActivity, SystemAudit, Department, Tag, CannedResponse, Contact, SavedView, Notification, ApiToken |
 | **Security** | Flask-Login sessions, CSRF, hashed passwords, role decorators, personal API tokens |
-| **Persistence** | `DATABASE_URL` → `postgresql+psycopg` + `sslmode=require`; SQLite fallback |
+| **Persistence** | `DATABASE_URL` → `postgresql+psycopg`; SSL required on hosted Neon, optional locally |
 | **Ops UI** | Inbox + filters, kanban, my queue, workload, SLA chips, tags, follow-ups, saved views |
 
 Serverless note: connections use **NullPool** so each invocation does not hold idle Postgres connections.
@@ -100,6 +100,7 @@ See **[DEMO.md](DEMO.md)** for a 5-minute viva script.
 | `SECRET_KEY` | Yes | Strong random string |
 | `FLASK_ENV` | Recommended | `production` |
 | `ENABLE_SEED` | Optional | Set to `1` to allow `/seed` in production |
+| `DATABASE_SSLMODE` | Optional | Defaults to `require` on Neon/Vercel; use `disable` for local Docker Postgres |
 
 **Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users.
 
@@ -117,6 +118,16 @@ python run.py
 Open http://127.0.0.1:5000
 
 New tables (`saved_views`, `notifications`, `api_tokens`, etc.) are created automatically via `db.create_all()` on startup.
+
+### Docker (Postgres 16)
+
+```bash
+docker compose up --build
+```
+
+App: http://127.0.0.1:8000 · Health: `/health` should report `backend: postgres`.
+
+Compose waits for `pg_isready` before starting Gunicorn. Set `SECRET_KEY` in the environment; do not expose the published `5432` port on an untrusted network.
 
 ---
 
