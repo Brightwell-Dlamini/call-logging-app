@@ -1,10 +1,21 @@
 """
-Helper utilities for activity logging, stats, and common operations.
+Helper utilities for activity logging, stats, SLA, notifications, and common operations.
 """
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from app import db
-from app.models import CallLog, CallActivity, User, Tag
+from app.models import CallLog, CallActivity, User, Tag, Notification, Contact
+
+
+# ---------------------------------------------------------------------------
+# Configurable SLA thresholds (hours). Can later be moved to DB settings.
+# ---------------------------------------------------------------------------
+SLA_THRESHOLDS = {
+    'Critical': {'warn': 2, 'breach': 4},
+    'High':     {'warn': 8, 'breach': 24},
+    'Medium':   {'warn': 24, 'breach': 48},
+    'Low':      {'warn': 48, 'breach': 72},
+}
 
 
 def log_activity(call_id: int, user_id: int, action: str, details: str = None) -> CallActivity:
@@ -18,6 +29,41 @@ def log_activity(call_id: int, user_id: int, action: str, details: str = None) -
     return activity
 
 
+def create_notification(
+    user_id: int,
+    title: str,
+    body: str = None,
+    category: str = 'system',
+    link_url: str = None,
+    call_id: int = None,
+) -> Notification:
+    """Create an in-app notification for a user."""
+    n = Notification(
+        UserID=user_id,
+        Title=title[:160],
+        Body=body,
+        Category=category,
+        LinkUrl=link_url,
+        CallID=call_id,
+    )
+    db.session.add(n)
+    return n
+
+
+def notify_assignment(call: CallLog, actor: User) -> None:
+    """Notify the newly assigned agent."""
+    if not call.AssignedTo or call.AssignedTo == getattr(actor, 'UserID', None):
+        return
+    create_notification(
+        user_id=call.AssignedTo,
+        title=f'Call #{call.CallID} assigned to you',
+        body=f'{call.CallerName} · {call.Priority} · {call.ReasonForCall[:120]}',
+        category='assignment',
+        link_url=f'/calls/{call.CallID}',
+        call_id=call.CallID,
+    )
+
+
 def age_hours(dt):
     if not dt:
         return None
@@ -26,20 +72,28 @@ def age_hours(dt):
 
 
 def sla_risk(call):
+    """
+    Return 'ok' | 'warn' | 'breach' based on priority and age.
+    Uses configurable thresholds.
+    """
     if call.Status in ('Resolved', 'Closed'):
         return 'ok'
     hours = age_hours(call.DateLogged) or 0
-    if call.Priority == 'Critical' and hours >= 4:
+    thresholds = SLA_THRESHOLDS.get(call.Priority) or SLA_THRESHOLDS['Medium']
+    if hours >= thresholds['breach']:
         return 'breach'
-    if call.Priority == 'Critical' and hours >= 2:
-        return 'warn'
-    if call.Priority == 'High' and hours >= 24:
-        return 'breach'
-    if call.Priority == 'High' and hours >= 8:
-        return 'warn'
-    if hours >= 48:
+    if hours >= thresholds['warn']:
         return 'warn'
     return 'ok'
+
+
+def sla_hours_remaining(call):
+    """Approximate hours until breach (negative if already breached)."""
+    if call.Status in ('Resolved', 'Closed'):
+        return None
+    hours = age_hours(call.DateLogged) or 0
+    thresholds = SLA_THRESHOLDS.get(call.Priority) or SLA_THRESHOLDS['Medium']
+    return round(thresholds['breach'] - hours, 1)
 
 
 def get_recent_activity(limit=12):
@@ -63,6 +117,62 @@ def get_recent_activity(limit=12):
     return out
 
 
+def get_contact_timeline(phone: str, limit: int = 20):
+    """Return contact profile + recent calls for a phone number."""
+    if not phone:
+        return None
+    phone = phone.strip()
+    contact = Contact.query.filter_by(PhoneNumber=phone).first()
+    calls = (
+        CallLog.query
+        .filter(CallLog.PhoneNumber == phone)
+        .order_by(CallLog.DateLogged.desc())
+        .limit(limit)
+        .all()
+    )
+    return {
+        'contact': {
+            'id': contact.ContactID if contact else None,
+            'phone': phone,
+            'display_name': contact.DisplayName if contact else None,
+            'email': contact.Email if contact else None,
+            'company': contact.Company if contact else None,
+            'notes': contact.Notes if contact else None,
+            'is_vip': bool(contact.IsVIP) if contact else False,
+        } if contact or calls else None,
+        'calls': [
+            {
+                'id': c.CallID,
+                'caller': c.CallerName,
+                'status': c.Status,
+                'priority': c.Priority,
+                'reason': (c.ReasonForCall or '')[:160],
+                'date_logged': c.DateLogged.isoformat() if c.DateLogged else None,
+                'resolution': (c.Resolution or '')[:120] if c.Resolution else None,
+            }
+            for c in calls
+        ],
+        'total_calls': CallLog.query.filter(CallLog.PhoneNumber == phone).count(),
+    }
+
+
+def ensure_contact(phone: str, display_name: str = None) -> Contact:
+    """Get or create a contact record for the phone number."""
+    if not phone:
+        return None
+    phone = phone.strip()[:30]
+    contact = Contact.query.filter_by(PhoneNumber=phone).first()
+    if contact is None:
+        contact = Contact(
+            PhoneNumber=phone,
+            DisplayName=(display_name or '')[:120] or None,
+        )
+        db.session.add(contact)
+    elif display_name and not contact.DisplayName:
+        contact.DisplayName = display_name[:120]
+    return contact
+
+
 def get_dashboard_stats(user=None):
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     now = datetime.utcnow()
@@ -84,13 +194,13 @@ def get_dashboard_stats(user=None):
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).count()
 
+    # SLA counts – still in Python for simplicity; acceptable at moderate volume
     open_q = CallLog.query.filter(
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).all()
     sla_breach = sum(1 for c in open_q if sla_risk(c) == 'breach')
     sla_warn = sum(1 for c in open_q if sla_risk(c) == 'warn')
 
-    # Overdue follow-ups
     overdue_followups = CallLog.query.filter(
         CallLog.FollowUpDate.isnot(None),
         CallLog.FollowUpDate < now,
@@ -109,6 +219,7 @@ def get_dashboard_stats(user=None):
 
     my_open = 0
     my_overdue = 0
+    unread_notifications = 0
     if user is not None and getattr(user, 'UserID', None):
         my_open = CallLog.query.filter(
             CallLog.AssignedTo == user.UserID,
@@ -119,6 +230,9 @@ def get_dashboard_stats(user=None):
             CallLog.FollowUpDate.isnot(None),
             CallLog.FollowUpDate < now,
             CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        ).count()
+        unread_notifications = Notification.query.filter_by(
+            UserID=user.UserID, IsRead=False
         ).count()
 
     status_counts = dict(
@@ -147,7 +261,6 @@ def get_dashboard_stats(user=None):
         .all()
     )
 
-    # Tag usage (top 8)
     try:
         tag_rows = (
             db.session.query(Tag.TagID, Tag.Name, Tag.Colour, func.count(CallLog.CallID))
@@ -203,4 +316,6 @@ def get_dashboard_stats(user=None):
         'workload': workload,
         'recent_calls': recent_calls,
         'recent_activity': get_recent_activity(10),
+        'unread_notifications': unread_notifications,
+        'sla_thresholds': SLA_THRESHOLDS,
     }

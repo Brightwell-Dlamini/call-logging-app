@@ -10,6 +10,9 @@ from app.models.disposition import DispositionCode
 from app.models.contact import Contact
 from app.models.watcher import call_watchers
 from app.models.audit import SystemAudit
+from app.models.saved_view import SavedView
+from app.models.notification import Notification
+from app.models.api_token import ApiToken
 
 __all__ = [
     'User',
@@ -23,4 +26,7 @@ __all__ = [
     'Contact',
     'call_watchers',
     'SystemAudit',
+    'SavedView',
+    'Notification',
+    'ApiToken',
 ]
