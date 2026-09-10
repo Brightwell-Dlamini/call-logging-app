@@ -2,6 +2,7 @@
 Application configuration.
 - Local: SQLite by default
 - Vercel + DATABASE_URL (Neon): persistent Postgres
+- Docker Compose: local Postgres without forced SSL
 """
 import os
 from datetime import timedelta
@@ -17,6 +18,19 @@ def _default_sqlite_uri():
     return 'sqlite:///' + os.path.join(
         os.path.abspath(os.path.dirname(__file__)), 'call_logging.db'
     )
+
+
+def _should_require_ssl(url):
+    """Force SSL for hosted Postgres; skip for local Docker/dev."""
+    explicit = (os.environ.get('DATABASE_SSLMODE') or '').strip().lower()
+    if explicit in ('disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'):
+        return explicit
+    hostish = url.lower()
+    if any(marker in hostish for marker in ('neon.tech', 'amazonaws.com', 'supabase.co', 'azure.com')):
+        return 'require'
+    if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV') == 'production':
+        return 'require'
+    return None
 
 
 def normalize_database_url(url):
@@ -37,10 +51,10 @@ def normalize_database_url(url):
     elif url.startswith('postgresql+psycopg2://'):
         url = 'postgresql+psycopg://' + url[len('postgresql+psycopg2://'):]
 
-    # Neon requires SSL; add if missing
-    if 'sslmode=' not in url:
+    sslmode = _should_require_ssl(url)
+    if sslmode and 'sslmode=' not in url:
         join = '&' if '?' in url else '?'
-        url = f'{url}{join}sslmode=require'
+        url = f'{url}{join}sslmode={sslmode}'
 
     return url
 
