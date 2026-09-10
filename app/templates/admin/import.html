@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Import calls{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Import calls</h1>
+    <p class="page-subtitle">Upload a CSV of historical or batch call records (managers &amp; admins)</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('calls.list_calls') }}" class="btn btn-secondary btn-sm">Back to calls</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="cl-card">
+      <div class="cl-card-header">Upload CSV</div>
+      <div class="cl-card-body">
+        <form method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3">
+            <label class="form-label" for="file">CSV file</label>
+            <input type="file" class="form-control" name="file" id="file" accept=".csv,text/csv" required>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="dry_run" value="1" id="dryRun" checked>
+            <label class="form-check-label" for="dryRun">Dry run (validate only, do not write)</label>
+          </div>
+          <button type="submit" class="btn btn-primary">Upload</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="cl-card">
+      <div class="cl-card-header">Expected columns</div>
+      <div class="cl-card-body">
+        <p class="text-muted" style="font-size:0.875rem;">Header names are flexible (spaces/case ignored).</p>
+        <ul class="meta-list">
+          <li><span class="meta-label">Required</span><span class="meta-value">CallerName, PhoneNumber, ReasonForCall</span></li>
+          <li><span class="meta-label">Optional</span><span class="meta-value">CallType, Priority, Status, Department, AssignedTo, DateLogged, FollowUpDate, Tags, Notes, Resolution</span></li>
+        </ul>
+        <p class="mb-0 mt-2" style="font-size:0.8rem;color:var(--cl-muted);">Limit: 2000 rows per upload. Tags matched by name. AssignedTo matched by full name or username.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if result %}
+<div class="cl-card mt-3">
+  <div class="cl-card-header">Result {% if result.dry_run %}<span class="badge status-pending">dry run</span>{% endif %}</div>
+  <div class="cl-card-body">
+    <p class="mb-2"><strong>{{ result.created }}</strong> ready/imported · <strong>{{ result.skipped }}</strong> skipped</p>
+    {% if result.errors %}
+    <div class="mb-3">
+      <div class="form-label">Issues</div>
+      <ul class="small text-danger mb-0">
+        {% for e in result.errors %}<li>{{ e }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% if result.preview %}
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>Row</th><th>Caller</th><th>Phone</th><th>Priority</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for p in result.preview %}
+          <tr>
+            <td>{{ p.row }}</td>
+            <td>{{ p.caller }}</td>
+            <td>{{ p.phone }}</td>
+            <td>{{ p.priority }}</td>
+            <td>{{ p.status }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
