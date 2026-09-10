@@ -1,0 +1,17 @@
+.rt-refresh-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--cl-text, #0f172a);
+  font-size: 0.875rem;
+}
+
+.rt-refresh-banner[hidden] {
+  display: none !important;
+}

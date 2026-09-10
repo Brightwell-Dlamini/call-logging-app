@@ -1,11 +1,11 @@
 """
-Additional REST API endpoints: saved views, notifications, contact timeline, API tokens.
+Additional REST API endpoints: saved views, notifications, contact timeline, API tokens, change feed.
 """
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from app import db
-from app.models import SavedView, Notification, ApiToken, CallLog
+from app.models import SavedView, Notification, ApiToken, CallLog, CallActivity
 from app.utils.decorators import login_required_active, agent_required, admin_required
 from app.utils.helpers import get_contact_timeline, ensure_contact, create_notification
 
@@ -16,6 +16,56 @@ def api_error(message, status=400, **extra):
     payload = {'ok': False, 'error': message}
     payload.update(extra)
     return jsonify(payload), status
+
+
+# ---------------------------------------------------------------------------
+# Change feed (lightweight polling for board / inbox refresh)
+# ---------------------------------------------------------------------------
+
+@api_extras_bp.route('/feed/changes')
+@login_required
+@login_required_active
+def change_feed():
+    """Return a revision stamp and counts of recent changes since a timestamp."""
+    since_raw = (request.args.get('since') or '').strip()
+    since = None
+    if since_raw:
+        try:
+            since = datetime.fromisoformat(since_raw.replace('Z', '+00:00')).replace(tzinfo=None)
+        except ValueError:
+            since = None
+    if since is None:
+        since = datetime.utcnow() - timedelta(minutes=5)
+
+    # Cap lookback
+    floor = datetime.utcnow() - timedelta(hours=6)
+    if since < floor:
+        since = floor
+
+    updated_calls = CallLog.query.filter(CallLog.LastUpdated >= since).count()
+    new_activities = CallActivity.query.filter(CallActivity.ActivityDate >= since).count()
+    open_count = CallLog.query.filter(
+        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+    ).count()
+    unassigned = CallLog.query.filter(
+        CallLog.AssignedTo.is_(None),
+        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+    ).count()
+
+    server_now = datetime.utcnow()
+    revision = f"{updated_calls}:{new_activities}:{open_count}:{unassigned}:{server_now.strftime('%Y%m%d%H%M%S')}"
+
+    return jsonify({
+        'ok': True,
+        'since': since.isoformat(),
+        'server_time': server_now.isoformat(),
+        'updated_calls': updated_calls,
+        'new_activities': new_activities,
+        'open_count': open_count,
+        'unassigned': unassigned,
+        'revision': revision,
+        'has_changes': (updated_calls + new_activities) > 0,
+    })
 
 
 # ---------------------------------------------------------------------------
