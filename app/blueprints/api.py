@@ -8,7 +8,10 @@ from sqlalchemy import or_
 from app import db
 from app.models import CallLog, User, Tag, CannedResponse, DispositionCode
 from app.utils.decorators import login_required_active, agent_required, manager_required
-from app.utils.helpers import get_dashboard_stats, log_activity, get_recent_activity, sla_risk
+from app.utils.helpers import (
+    get_dashboard_stats, log_activity, get_recent_activity, sla_risk,
+    ensure_contact, notify_assignment, notify_escalate, notify_watchers,
+)
 
 api_bp = Blueprint('api', __name__)
 
@@ -110,6 +113,7 @@ def dashboard_stats():
         'dept_counts': stats['dept_counts'],
         'tag_counts': stats.get('tag_counts', []),
         'workload': stats['workload'],
+        'unread_notifications': stats.get('unread_notifications', 0),
     })
 
 
@@ -319,6 +323,9 @@ def create_call_api():
             pass
 
     log_activity(call.CallID, current_user.UserID, 'Created', 'Via API')
+    ensure_contact(call.PhoneNumber, display_name=call.CallerName)
+    if call.AssignedTo:
+        notify_assignment(call, actor=current_user)
     db.session.commit()
     return jsonify(ok=True, id=call.CallID, call=serialize_call(call, detail=True)), 201
 
@@ -370,6 +377,7 @@ def round_robin_assign():
             'Assigned',
             f'Round-robin → {agent.FullName}'
         )
+        notify_assignment(call, actor=current_user)
         assigned_count += 1
 
     db.session.commit()
@@ -410,6 +418,7 @@ def claim_next():
         'Claimed',
         f'Claim-next by {current_user.FullName}'
     )
+    notify_watchers(call, title=f'Call #{call.CallID} claimed', body=f'Claim-next by {current_user.FullName}', category='claim', exclude_user_id=current_user.UserID)
     db.session.commit()
     return jsonify(ok=True, call_id=call.CallID, call=serialize_call(call))
 
@@ -456,7 +465,10 @@ def update_call_api(call_id):
                 assigned = int(assigned)
             except (TypeError, ValueError):
                 return api_error('assigned_to must be an integer user id')
+        prev_assigned = c.AssignedTo
         c.AssignedTo = assigned
+        if assigned and assigned != prev_assigned:
+            notify_assignment(c, actor=current_user)
     if 'disposition_id' in data:
         did = data['disposition_id'] or None
         if did is not None:
@@ -503,6 +515,7 @@ def quick_action(call_id):
         if c.Status == 'Open':
             c.Status = 'In Progress'
         log_activity(c.CallID, current_user.UserID, 'Claimed', f'Claimed by {current_user.FullName}')
+        notify_watchers(c, title=f'Call #{c.CallID} claimed', body=f'Claimed by {current_user.FullName}', category='claim', exclude_user_id=current_user.UserID)
     elif action == 'resolve':
         old = c.Status
         c.Status = 'Resolved'
@@ -531,6 +544,7 @@ def quick_action(call_id):
     elif action == 'escalate':
         c.Priority = 'Critical'
         log_activity(c.CallID, current_user.UserID, 'Escalated', 'Priority set to Critical')
+        notify_escalate(c, actor=current_user)
     elif action == 'pending':
         old = c.Status
         c.Status = 'Pending'
@@ -564,46 +578,9 @@ def list_users_api():
         {
             'id': u.UserID,
             'name': u.FullName,
-            'role': u.Role,
             'username': u.Username,
-            'presence': getattr(u, 'Presence', 'Available'),
+            'role': u.Role,
+            'presence': getattr(u, 'Presence', None),
         }
         for u in users
     ])
-
-
-@api_bp.route('/reports/daily')
-@login_required
-@login_required_active
-def daily_report_api():
-    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    count = CallLog.query.filter(CallLog.DateLogged >= today).count()
-    return jsonify({'ok': True, 'date': today.date().isoformat(), 'calls_logged': count})
-
-
-@api_bp.route('/phone-lookup')
-@login_required
-@login_required_active
-def phone_lookup():
-    phone = (request.args.get('phone') or '').strip()[:30]
-    if len(phone) < 5:
-        return jsonify(ok=True, matches=[])
-    matches = (
-        CallLog.query.filter(CallLog.PhoneNumber.ilike(f'%{phone}%'))
-        .order_by(CallLog.DateLogged.desc())
-        .limit(5)
-        .all()
-    )
-    return jsonify({
-        'ok': True,
-        'matches': [
-            {
-                'id': c.CallID,
-                'caller': c.CallerName,
-                'status': c.Status,
-                'date': c.DateLogged.strftime('%Y-%m-%d') if c.DateLogged else '',
-                'reason': (c.ReasonForCall or '')[:80],
-            }
-            for c in matches
-        ]
-    })

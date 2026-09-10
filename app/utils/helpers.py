@@ -38,11 +38,13 @@ def create_notification(
     call_id: int = None,
 ) -> Notification:
     """Create an in-app notification for a user."""
+    if not user_id:
+        return None
     n = Notification(
         UserID=user_id,
-        Title=title[:160],
+        Title=(title or '')[:160],
         Body=body,
-        Category=category,
+        Category=category or 'system',
         LinkUrl=link_url,
         CallID=call_id,
     )
@@ -50,18 +52,76 @@ def create_notification(
     return n
 
 
-def notify_assignment(call: CallLog, actor: User) -> None:
-    """Notify the newly assigned agent."""
-    if not call.AssignedTo or call.AssignedTo == getattr(actor, 'UserID', None):
+def notify_assignment(call: CallLog, actor: User = None) -> None:
+    """Notify the newly assigned agent (skip self-assign)."""
+    if not call or not call.AssignedTo:
+        return
+    actor_id = getattr(actor, 'UserID', None)
+    if actor_id and call.AssignedTo == actor_id:
         return
     create_notification(
         user_id=call.AssignedTo,
         title=f'Call #{call.CallID} assigned to you',
-        body=f'{call.CallerName} · {call.Priority} · {call.ReasonForCall[:120]}',
+        body=f'{call.CallerName} · {call.Priority} · {(call.ReasonForCall or "")[:120]}',
         category='assignment',
         link_url=f'/calls/{call.CallID}',
         call_id=call.CallID,
     )
+
+
+def notify_watchers(call: CallLog, title: str, body: str = None, category: str = 'system', exclude_user_id: int = None) -> None:
+    """Notify users watching this call."""
+    if not call:
+        return
+    for w in (call.watchers or []):
+        if exclude_user_id and w.UserID == exclude_user_id:
+            continue
+        create_notification(
+            user_id=w.UserID,
+            title=title,
+            body=body,
+            category=category,
+            link_url=f'/calls/{call.CallID}',
+            call_id=call.CallID,
+        )
+
+
+def notify_escalate(call: CallLog, actor: User = None) -> None:
+    """Notify assignee and managers on escalation."""
+    if not call:
+        return
+    actor_id = getattr(actor, 'UserID', None)
+    title = f'Call #{call.CallID} escalated to Critical'
+    body = f'{call.CallerName} · escalated by {getattr(actor, "FullName", "system")}'
+    if call.AssignedTo and call.AssignedTo != actor_id:
+        create_notification(
+            user_id=call.AssignedTo,
+            title=title,
+            body=body,
+            category='sla_warn',
+            link_url=f'/calls/{call.CallID}',
+            call_id=call.CallID,
+        )
+    # Notify active managers/admins (lightweight — limit to 10)
+    managers = (
+        User.query.filter(
+            User.IsActive == True,
+            User.Role.in_(['Manager', 'Admin']),
+        )
+        .limit(10)
+        .all()
+    )
+    for m in managers:
+        if m.UserID == actor_id or m.UserID == call.AssignedTo:
+            continue
+        create_notification(
+            user_id=m.UserID,
+            title=title,
+            body=body,
+            category='sla_warn',
+            link_url=f'/calls/{call.CallID}',
+            call_id=call.CallID,
+        )
 
 
 def age_hours(dt):
@@ -139,7 +199,7 @@ def get_contact_timeline(phone: str, limit: int = 20):
             'company': contact.Company if contact else None,
             'notes': contact.Notes if contact else None,
             'is_vip': bool(contact.IsVIP) if contact else False,
-        } if contact or calls else None,
+        } if (contact or calls) else None,
         'calls': [
             {
                 'id': c.CallID,
@@ -194,7 +254,6 @@ def get_dashboard_stats(user=None):
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).count()
 
-    # SLA counts – still in Python for simplicity; acceptable at moderate volume
     open_q = CallLog.query.filter(
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).all()
