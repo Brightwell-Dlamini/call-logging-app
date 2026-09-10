@@ -70,6 +70,22 @@ def create_app(config_name=None):
     app.register_blueprint(api_extras_bp, url_prefix='/api')
     app.register_blueprint(board_bp)
 
+    @app.after_request
+    def set_security_headers(response):
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'DENY')
+        response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+        response.headers.setdefault(
+            'Permissions-Policy',
+            'camera=(), microphone=(), geolocation=()',
+        )
+        if _is_production():
+            response.headers.setdefault(
+                'Strict-Transport-Security',
+                'max-age=31536000; includeSubDomains',
+            )
+        return response
+
     @app.errorhandler(404)
     def not_found_error(error):
         return render_template('errors/404.html'), 404
