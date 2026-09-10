@@ -30,6 +30,8 @@ Use this before marking the project “production ready” or sharing credential
 | Injection | SQLAlchemy ORM (no raw string SQL for user input) |
 | Rate limit | Flask-Limiter on app |
 | API enums | Status, priority, and call type validated on write |
+| HTTP headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`; HSTS in production |
+| DB SSL | `sslmode=require` for Neon/hosted URLs; `DATABASE_SSLMODE=disable` for local Docker Postgres |
 
 Passwords are never written to audit details. Login failures record username only.
 
@@ -39,6 +41,7 @@ Passwords are never written to audit details. Login failures record username onl
 - [ ] Confirm HTTPS only (Vercel provides this).
 - [ ] Repo: avoid committing `.env`, real connection strings, or production dumps.
 - [ ] Review Admin → Audit log after go-live (filter source = system).
+- [ ] Local Compose uses Postgres 16 (not MySQL). Change default Compose passwords before exposing ports.
 
 ## If credentials leaked
 
