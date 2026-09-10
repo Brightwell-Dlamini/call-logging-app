@@ -35,6 +35,7 @@
     <link href="{{ url_for('static', filename='css/wave10.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/wave11.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/dark.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/enhancements.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
     <script>
     (function(){
@@ -156,13 +157,15 @@
                 <kbd class="cmd-hint d-none d-lg-inline">⌘K</kbd>
             </button>
             <div class="notif-wrap">
-              <button type="button" class="btn btn-ghost btn-sm btn-icon" id="notifBell" title="Activity">
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" id="notifBell" title="Notifications">
                 <i class="fas fa-bell"></i>
                 <span class="notif-badge" id="notifBadge" hidden>0</span>
               </button>
               <div class="notif-panel" id="notifPanel" hidden>
-                <div class="notif-panel-head">Recent activity</div>
-                <div id="notifList"></div>
+                <div class="notif-panel-head">
+                  <span>Notifications</span>
+                </div>
+                <div id="notifList"><div class="notif-empty">Loading…</div></div>
               </div>
             </div>
             <button type="button" class="btn btn-ghost btn-sm btn-icon" id="focusToggle" title="Focus mode (F)">
@@ -272,6 +275,7 @@
     <script src="{{ url_for('static', filename='js/wave9.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave10.js') }}"></script>
     <script src="{{ url_for('static', filename='js/wave11.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/enhancements.js') }}"></script>
     <script>
     (function(){
       var sel = document.getElementById('presenceSelect');
