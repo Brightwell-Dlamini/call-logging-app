@@ -1,0 +1,137 @@
+/* Notification centre + tokens + saved-view polish */
+
+.notif-panel {
+  min-width: 320px;
+  max-width: 380px;
+  max-height: 420px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-panel-head {
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--cl-border, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#notifList {
+  overflow-y: auto;
+  max-height: 360px;
+}
+
+.notif-item {
+  display: block;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--cl-border, #e2e8f0);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+
+.notif-item:hover {
+  background: var(--cl-surface-2, rgba(0,0,0,0.04));
+}
+
+.notif-item.unread {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.notif-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 0.15rem;
+}
+
+.notif-body {
+  font-size: 0.8125rem;
+  color: var(--cl-muted, #64748b);
+  margin-bottom: 0.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.notif-meta {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--cl-muted, #64748b);
+}
+
+.notif-cat {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 600;
+}
+
+.notif-empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--cl-muted, #64748b);
+  font-size: 0.875rem;
+}
+
+.notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.sv-chip.pinned {
+  border-color: var(--cl-primary, #3b82f6);
+}
+
+/* API tokens on settings */
+.token-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--cl-border, #e2e8f0);
+}
+
+.token-row:last-child {
+  border-bottom: none;
+}
+
+.token-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.token-meta {
+  font-size: 0.8rem;
+  color: var(--cl-muted, #64748b);
+  margin-top: 0.15rem;
+}
+
+.token-once {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 8px;
+}
+
+.token-once code {
+  display: block;
+  word-break: break-all;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+}
