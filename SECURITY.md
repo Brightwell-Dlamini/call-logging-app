@@ -22,16 +22,24 @@ Use this before marking the project “production ready” or sharing credential
 | Control | Implementation |
 |---------|----------------|
 | Password hashing | `pbkdf2:sha256` via Werkzeug |
-| Sessions | Flask-Login + secure cookie flags in production |
+| Sessions | Flask-Login; HttpOnly + SameSite=Lax cookies; Secure in production |
 | CSRF | Flask-WTF; AJAX uses `X-CSRFToken` |
 | RBAC | Admin / Manager / Agent decorators |
 | Call audit | `CallActivity` on create, assign, status, bulk |
-| System audit | `SystemAudit` on login/logout/lockout and admin CRUD |
+| System audit | `SystemAudit` on login/logout/lockout, admin CRUD, CSV import, API tokens |
 | Injection | SQLAlchemy ORM (no raw string SQL for user input) |
-| Rate limit | Flask-Limiter on app |
+| Rate limit | Flask-Limiter on app; tighter limits on login, import, tokens, change feed |
 | API enums | Status, priority, and call type validated on write |
+| Uploads | `MAX_CONTENT_LENGTH` (default 2 MiB); CSV import allows `.csv`/`.txt` only, 2000-row cap |
 
-Passwords are never written to audit details. Login failures record username only.
+Passwords are never written to audit details. Login failures record username only. API token secrets are shown once at creation and are not stored in audit rows.
+
+## CSV import
+
+- Manager or Admin only.
+- Rate-limited to 10 uploads per hour per client.
+- Rejects non-CSV/TXT filenames and files larger than `MAX_IMPORT_BYTES` / `MAX_CONTENT_LENGTH`.
+- Writes `import.completed`, `import.dry_run`, or `import.rejected` to the system audit log.
 
 ## Operational
 
@@ -45,3 +53,4 @@ Passwords are never written to audit details. Login failures record username onl
 1. Rotate Neon password immediately in the Neon console.
 2. Update Vercel `DATABASE_URL` and redeploy.
 3. Optionally force-logout by changing `SECRET_KEY` (invalidates all sessions).
+4. Revoke personal API tokens under Settings.

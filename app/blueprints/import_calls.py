@@ -4,12 +4,14 @@ CSV bulk import for historical / batch call logging.
 from datetime import datetime
 from io import StringIO
 import csv
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
+import os
+from flask import Blueprint, render_template, request, flash, redirect, url_for
 from flask_login import login_required, current_user
-from app import db
+from app import db, limiter
 from app.models import CallLog, Tag, User
 from app.utils.decorators import login_required_active, manager_required
 from app.utils.helpers import log_activity, ensure_contact, notify_assignment
+from app.utils.audit import log_audit
 
 import_bp = Blueprint('import_calls', __name__, url_prefix='/import')
 
@@ -17,15 +19,22 @@ VALID_STATUS = {'Open', 'In Progress', 'Pending', 'Resolved', 'Closed'}
 VALID_PRIORITY = {'Low', 'Medium', 'High', 'Critical'}
 VALID_TYPE = {'Incoming', 'Outgoing'}
 
-EXPECTED_HEADERS = {
-    'callername', 'caller_name', 'caller',
-    'phonenumber', 'phone_number', 'phone',
-    'reasonforcall', 'reason_for_call', 'reason',
-}
+MAX_IMPORT_ROWS = 2000
+MAX_IMPORT_BYTES = int(os.environ.get('MAX_IMPORT_BYTES', 2 * 1024 * 1024))
+ALLOWED_EXTENSIONS = {'.csv', '.txt'}
 
 
 def _norm_header(h):
     return (h or '').strip().lower().replace(' ', '').replace('-', '')
+
+
+def allowed_import_filename(filename):
+    if not filename:
+        return False
+    name = filename.lower().rsplit('.', 1)
+    if len(name) != 2:
+        return False
+    return ('.' + name[1]) in ALLOWED_EXTENSIONS
 
 
 def _parse_datetime(val):
@@ -41,7 +50,7 @@ def _parse_datetime(val):
         '%d/%m/%Y',
     ):
         try:
-            return datetime.strptime(s[:19], fmt)
+            return datetime.strptime(s[:19] if len(s) >= 19 else s, fmt)
         except ValueError:
             continue
     try:
@@ -102,17 +111,17 @@ def _map_row(row):
     return {
         'CallerName': str(caller)[:120],
         'PhoneNumber': str(phone)[:30],
-        'ReasonForCall': str(reason),
+        'ReasonForCall': str(reason)[:4000],
         'CallType': call_type,
         'Priority': priority,
         'Status': status,
         'Department': str(department)[:50] if department else None,
-        'Notes': notes,
-        'Resolution': resolution,
+        'Notes': (str(notes)[:8000] if notes else None),
+        'Resolution': (str(resolution)[:4000] if resolution else None),
         'DateLogged': date_logged or datetime.utcnow(),
         'FollowUpDate': follow_up,
         'AssignedTo': assigned_id,
-        'tag_names': tag_names,
+        'tag_names': tag_names[:20],
     }, None
 
 
@@ -120,6 +129,7 @@ def _map_row(row):
 @login_required
 @login_required_active
 @manager_required
+@limiter.limit('10 per hour')
 def import_page():
     result = None
     if request.method == 'POST':
@@ -127,10 +137,25 @@ def import_page():
         if not f or not f.filename:
             flash('Choose a CSV file to upload.', 'warning')
             return redirect(url_for('import_calls.import_page'))
+        if not allowed_import_filename(f.filename):
+            flash('Only .csv or .txt files are accepted.', 'warning')
+            return redirect(url_for('import_calls.import_page'))
 
         dry_run = request.form.get('dry_run') in ('1', 'true', 'on', 'yes')
         try:
-            raw = f.read()
+            raw = f.read(MAX_IMPORT_BYTES + 1)
+            if len(raw) > MAX_IMPORT_BYTES:
+                flash(
+                    f'File exceeds the {MAX_IMPORT_BYTES // 1024} KiB import limit.',
+                    'danger',
+                )
+                log_audit(
+                    'import.rejected',
+                    f'size_limit filename={f.filename[:80]}',
+                    target_type='import',
+                )
+                db.session.commit()
+                return redirect(url_for('import_calls.import_page'))
             try:
                 text = raw.decode('utf-8-sig')
             except UnicodeDecodeError:
@@ -146,8 +171,8 @@ def import_page():
             preview = []
 
             for i, row in enumerate(reader, start=2):
-                if created + skipped >= 2000:
-                    errors.append(f'Stopped at row {i}: 2000 row limit per upload')
+                if created + skipped >= MAX_IMPORT_ROWS:
+                    errors.append(f'Stopped at row {i}: {MAX_IMPORT_ROWS} row limit per upload')
                     break
                 mapped, err = _map_row(row)
                 if err:
@@ -202,10 +227,17 @@ def import_page():
                     notify_assignment(call, actor=current_user)
                 created += 1
 
+            log_audit(
+                'import.dry_run' if dry_run else 'import.completed',
+                f'created={created} skipped={skipped} file={f.filename[:80]}',
+                target_type='import',
+            )
+
             if not dry_run:
                 db.session.commit()
                 flash(f'Imported {created} call(s). Skipped {skipped}.', 'success')
             else:
+                db.session.commit()
                 flash(f'Dry run: {created} row(s) would import, {skipped} skipped.', 'info')
 
             result = {
