@@ -4,10 +4,11 @@ Additional REST API endpoints: saved views, notifications, contact timeline, API
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from app import db
+from app import db, limiter
 from app.models import SavedView, Notification, ApiToken, CallLog, CallActivity
-from app.utils.decorators import login_required_active, agent_required, admin_required
-from app.utils.helpers import get_contact_timeline, ensure_contact, create_notification
+from app.utils.decorators import login_required_active, agent_required
+from app.utils.helpers import get_contact_timeline, ensure_contact
+from app.utils.audit import log_audit
 
 api_extras_bp = Blueprint('api_extras', __name__)
 
@@ -25,6 +26,7 @@ def api_error(message, status=400, **extra):
 @api_extras_bp.route('/feed/changes')
 @login_required
 @login_required_active
+@limiter.limit('60 per minute')
 def change_feed():
     """Return a revision stamp and counts of recent changes since a timestamp."""
     since_raw = (request.args.get('since') or '').strip()
@@ -283,6 +285,7 @@ def list_tokens():
 @api_extras_bp.route('/tokens', methods=['POST'])
 @login_required
 @login_required_active
+@limiter.limit('10 per hour')
 def create_token():
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()[:80]
@@ -311,6 +314,13 @@ def create_token():
     )
     token.set_token(raw)
     db.session.add(token)
+    db.session.flush()
+    log_audit(
+        'token.create',
+        f'name={name} scopes={scopes}',
+        target_type='api_token',
+        target_id=token.TokenID,
+    )
     db.session.commit()
     return jsonify({'ok': True, 'token': token.to_dict(include_token=raw)}), 201
 
@@ -323,5 +333,11 @@ def revoke_token(token_id):
     if not token:
         return api_error('Token not found', 404)
     token.IsActive = False
+    log_audit(
+        'token.revoke',
+        f'name={token.Name}',
+        target_type='api_token',
+        target_id=token.TokenID,
+    )
     db.session.commit()
     return jsonify({'ok': True})

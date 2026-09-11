@@ -80,6 +80,10 @@ class Config:
     RATELIMIT_DEFAULT = '200 per day;50 per hour'
     MAX_LOGIN_ATTEMPTS = 5
     LOGIN_LOCKOUT_MINUTES = 15
+    # Cap uploads (CSV import) so a single request cannot exhaust memory.
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 2 * 1024 * 1024))
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
 
 
 class DevelopmentConfig(Config):

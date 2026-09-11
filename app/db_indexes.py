@@ -15,6 +15,8 @@ INDEX_STATEMENTS = (
     'ON call_log ("Department", "Status")',
     'CREATE INDEX IF NOT EXISTS ix_call_log_followup '
     'ON call_log ("FollowUpDate")',
+    'CREATE INDEX IF NOT EXISTS ix_call_log_lastupdated '
+    'ON call_log ("LastUpdated")',
     'CREATE INDEX IF NOT EXISTS ix_call_activity_activitydate '
     'ON call_activity ("ActivityDate")',
     'CREATE INDEX IF NOT EXISTS ix_users_role_active '
