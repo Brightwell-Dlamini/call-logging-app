@@ -1,8 +1,8 @@
 """
 Helper utilities for activity logging, stats, SLA, notifications, and common operations.
 """
-from datetime import datetime, timedelta
-from sqlalchemy import func, or_
+from datetime import datetime, timedelta, date
+from sqlalchemy import func, or_, case
 from app import db
 from app.models import CallLog, CallActivity, User, Tag, Notification, Contact
 
@@ -241,10 +241,14 @@ def get_dashboard_stats(user=None):
     open_calls = CallLog.query.filter(
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).count()
+
+    # Prefer LastUpdated; fall back to DateLogged for older rows that predate the column
+    resolved_ts = func.coalesce(CallLog.LastUpdated, CallLog.DateLogged)
     resolved_today = CallLog.query.filter(
         CallLog.Status.in_(['Resolved', 'Closed']),
-        CallLog.LastUpdated >= today_start
+        resolved_ts >= today_start,
     ).count()
+
     high_priority = CallLog.query.filter(
         CallLog.Priority.in_(['High', 'Critical']),
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
@@ -290,9 +294,12 @@ def get_dashboard_stats(user=None):
             CallLog.FollowUpDate < now,
             CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
         ).count()
-        unread_notifications = Notification.query.filter_by(
-            UserID=user.UserID, IsRead=False
-        ).count()
+        try:
+            unread_notifications = Notification.query.filter_by(
+                UserID=user.UserID, IsRead=False
+            ).count()
+        except Exception:
+            unread_notifications = 0
 
     status_counts = dict(
         db.session.query(CallLog.Status, func.count(CallLog.CallID))
@@ -300,6 +307,7 @@ def get_dashboard_stats(user=None):
         .all()
     )
 
+    # Build a full 7-day series so charts are never empty of labels
     seven_days_ago = today_start - timedelta(days=6)
     daily = (
         db.session.query(
@@ -311,11 +319,24 @@ def get_dashboard_stats(user=None):
         .order_by('day')
         .all()
     )
-    calls_per_day = {str(d): c for d, c in daily}
+    calls_per_day = {}
+    for i in range(7):
+        d = (seven_days_ago + timedelta(days=i)).date()
+        calls_per_day[d.isoformat()] = 0
+    for d, c in daily:
+        if d is None:
+            continue
+        if isinstance(d, datetime):
+            key = d.date().isoformat()
+        elif isinstance(d, date):
+            key = d.isoformat()
+        else:
+            key = str(d)[:10]
+        calls_per_day[key] = int(c)
 
     dept_counts = dict(
         db.session.query(CallLog.Department, func.count(CallLog.CallID))
-        .filter(CallLog.Department.isnot(None))
+        .filter(CallLog.Department.isnot(None), CallLog.Department != '')
         .group_by(CallLog.Department)
         .all()
     )
