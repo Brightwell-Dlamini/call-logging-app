@@ -2,7 +2,7 @@
 CSV bulk import for historical / batch call logging.
 """
 from datetime import datetime
-from io import StringIO, TextIO
+from io import StringIO
 import csv
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
 from flask_login import login_required, current_user
