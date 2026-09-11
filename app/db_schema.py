@@ -66,6 +66,13 @@ def ensure_schema(db) -> None:
             ADD COLUMN IF NOT EXISTS "Resolution" TEXT;
         """))
 
+        # Backfill LastUpdated so resolved_today / feed metrics work on older rows
+        db.session.execute(text("""
+            UPDATE call_log
+            SET "LastUpdated" = COALESCE("LastUpdated", "DateLogged", NOW())
+            WHERE "LastUpdated" IS NULL;
+        """))
+
         # Soft FK for DispositionID (ignore if table/constraint already present)
         db.session.execute(text("""
             DO $$ BEGIN
@@ -102,5 +109,11 @@ def ensure_schema(db) -> None:
                 db.session.execute(text(
                     f'ALTER TABLE call_log ADD COLUMN "{name}" {typedef}'
                 ))
+
+        db.session.execute(text("""
+            UPDATE call_log
+            SET LastUpdated = COALESCE(LastUpdated, DateLogged, CURRENT_TIMESTAMP)
+            WHERE LastUpdated IS NULL;
+        """))
 
     db.session.commit()
