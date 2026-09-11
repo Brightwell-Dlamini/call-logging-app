@@ -172,6 +172,12 @@ def create_app(config_name=None):
     with app.app_context():
         try:
             db.create_all()
+            from app.db_schema import ensure_schema
+            try:
+                ensure_schema(db)
+            except Exception as schema_err:
+                db.session.rollback()
+                app.logger.warning('schema ensure failed: %s', schema_err)
             from app.db_indexes import ensure_indexes
             try:
                 ensure_indexes(db)
