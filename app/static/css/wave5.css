@@ -1,13 +1,36 @@
 /* Wave 5 */
-body.focus-mode .chart-panel,
-body.focus-mode .activity-feed,
-body.focus-mode .stat-grid { display: none !important; }
+/* Focus mode: hide heavy chart panels, keep KPI cards so numbers stay visible */
+body.focus-mode .chart-panel {
+  display: none !important;
+}
+body.focus-mode .activity-feed {
+  max-height: 200px;
+  overflow: auto;
+}
 body.focus-mode .crit-banner { margin-bottom: 1rem; }
+
+/* Banner so users know why charts are hidden */
+.focus-mode-banner {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--cl-border, #e2e8f0);
+  background: var(--cl-surface-2, #f1f5f9);
+  font-size: 0.875rem;
+  color: var(--cl-text-secondary, #475569);
+}
+body.focus-mode .focus-mode-banner {
+  display: flex;
+}
+.focus-mode-banner strong { color: var(--cl-text, #0f172a); }
+.focus-mode-banner .btn { margin-left: auto; }
+
 #focusToggle.active {
   color: var(--cl-accent, #6366f1);
   background: color-mix(in srgb, var(--cl-accent, #6366f1) 12%, transparent);
 }
 .inbox-row.age-warm td:nth-child(2) { box-shadow: inset 3px 0 0 #F59E0B; }
 .inbox-row.age-hot td:nth-child(2) { box-shadow: inset 3px 0 0 #EF4444; }
-.inbox-row.is-starred.age-hot td:first-child,
-.inbox-row.is-starred.age-warm td:first-child { /* star wins left edge */ }
