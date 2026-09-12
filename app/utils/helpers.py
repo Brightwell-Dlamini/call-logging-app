@@ -102,7 +102,6 @@ def notify_escalate(call: CallLog, actor: User = None) -> None:
             link_url=f'/calls/{call.CallID}',
             call_id=call.CallID,
         )
-    # Notify active managers/admins (lightweight — limit to 10)
     managers = (
         User.query.filter(
             User.IsActive == True,
@@ -132,10 +131,7 @@ def age_hours(dt):
 
 
 def sla_risk(call):
-    """
-    Return 'ok' | 'warn' | 'breach' based on priority and age.
-    Uses configurable thresholds.
-    """
+    """Return 'ok' | 'warn' | 'breach' based on priority and age."""
     if call.Status in ('Resolved', 'Closed'):
         return 'ok'
     hours = age_hours(call.DateLogged) or 0
@@ -242,7 +238,6 @@ def get_dashboard_stats(user=None):
         CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
     ).count()
 
-    # Prefer LastUpdated; fall back to DateLogged for older rows that predate the column
     resolved_ts = func.coalesce(CallLog.LastUpdated, CallLog.DateLogged)
     resolved_today = CallLog.query.filter(
         CallLog.Status.in_(['Resolved', 'Closed']),
@@ -307,7 +302,15 @@ def get_dashboard_stats(user=None):
         .all()
     )
 
-    # Build a full 7-day series so charts are never empty of labels
+    priority_counts = dict(
+        db.session.query(CallLog.Priority, func.count(CallLog.CallID))
+        .group_by(CallLog.Priority)
+        .all()
+    )
+    # Ensure all priority labels appear for charts
+    for p in ('Low', 'Medium', 'High', 'Critical'):
+        priority_counts.setdefault(p, 0)
+
     seven_days_ago = today_start - timedelta(days=6)
     daily = (
         db.session.query(
@@ -390,6 +393,7 @@ def get_dashboard_stats(user=None):
         'avg_satisfaction': avg_satisfaction,
         'avg_handle_mins': avg_handle_mins,
         'status_counts': status_counts,
+        'priority_counts': priority_counts,
         'calls_per_day': calls_per_day,
         'dept_counts': dept_counts,
         'tag_counts': tag_counts,
