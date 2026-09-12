@@ -18,6 +18,18 @@ SLA_THRESHOLDS = {
 }
 
 
+def _str_key_counts(rows):
+    """Convert group_by rows to {str_key: int_count} for JSON-safe charts."""
+    out = {}
+    for key, cnt in rows:
+        if key is None:
+            continue
+        # Enum members, dates, etc. → plain string labels
+        label = getattr(key, 'value', None) or getattr(key, 'name', None) or str(key)
+        out[str(label)] = int(cnt or 0)
+    return out
+
+
 def log_activity(call_id: int, user_id: int, action: str, details: str = None) -> CallActivity:
     activity = CallActivity(
         CallID=call_id,
@@ -296,18 +308,19 @@ def get_dashboard_stats(user=None):
         except Exception:
             unread_notifications = 0
 
-    status_counts = dict(
+    status_rows = (
         db.session.query(CallLog.Status, func.count(CallLog.CallID))
         .group_by(CallLog.Status)
         .all()
     )
+    status_counts = _str_key_counts(status_rows)
 
-    priority_counts = dict(
+    priority_rows = (
         db.session.query(CallLog.Priority, func.count(CallLog.CallID))
         .group_by(CallLog.Priority)
         .all()
     )
-    # Ensure all priority labels appear for charts
+    priority_counts = _str_key_counts(priority_rows)
     for p in ('Low', 'Medium', 'High', 'Critical'):
         priority_counts.setdefault(p, 0)
 
@@ -337,12 +350,13 @@ def get_dashboard_stats(user=None):
             key = str(d)[:10]
         calls_per_day[key] = int(c)
 
-    dept_counts = dict(
+    dept_rows = (
         db.session.query(CallLog.Department, func.count(CallLog.CallID))
         .filter(CallLog.Department.isnot(None), CallLog.Department != '')
         .group_by(CallLog.Department)
         .all()
     )
+    dept_counts = _str_key_counts(dept_rows)
 
     try:
         tag_rows = (
@@ -354,7 +368,7 @@ def get_dashboard_stats(user=None):
             .all()
         )
         tag_counts = [
-            {'id': tid, 'name': name, 'colour': colour, 'count': cnt}
+            {'id': tid, 'name': str(name), 'colour': str(colour or '#6366f1'), 'count': int(cnt)}
             for tid, name, colour, cnt in tag_rows
         ]
     except Exception:
@@ -373,7 +387,7 @@ def get_dashboard_stats(user=None):
         .all()
     )
     workload = [
-        {'user_id': uid, 'name': name, 'open_count': cnt}
+        {'user_id': uid, 'name': name, 'open_count': int(cnt or 0)}
         for uid, name, cnt in workload_rows
     ]
 
