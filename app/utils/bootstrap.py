@@ -59,7 +59,10 @@ def bootstrap_demo_data(include_sample_calls=True):
     Returns a list of created labels. Does not commit.
     """
     from app import db
-    from app.models import User, Department, CallLog, Tag, CannedResponse, DispositionCode, Contact
+    from app.models import (
+        User, Department, CallLog, Tag, CannedResponse,
+        DispositionCode, Contact, CallActivity,
+    )
 
     created = []
 
@@ -110,7 +113,9 @@ def bootstrap_demo_data(include_sample_calls=True):
     db.session.flush()
 
     if include_sample_calls and CallLog.query.count() == 0:
-        assignees = [u.UserID for u in User.query.limit(3).all()]
+        users = User.query.limit(3).all()
+        assignees = [u.UserID for u in users]
+        tags = Tag.query.order_by(Tag.TagID).all()
         now = datetime.utcnow()
         for i, (name, phone, dept, ctype, reason, pri, status) in enumerate(DEMO_CALLS):
             call = CallLog(
@@ -123,13 +128,27 @@ def bootstrap_demo_data(include_sample_calls=True):
                 Status=status,
                 AssignedTo=assignees[i % len(assignees)] if assignees else None,
                 DateLogged=now - timedelta(hours=i * 5),
+                LastUpdated=now - timedelta(hours=i * 4),
                 TimeSpent=30 if status in ('Resolved', 'Closed') else None,
-                SatisfactionRating=5 if status in ('Resolved', 'Closed') else None,
+                SatisfactionRating=(4 + (i % 2)) if status in ('Resolved', 'Closed') else None,
                 Resolution='Issue resolved' if status in ('Resolved', 'Closed') else None,
             )
             if status in ('Open', 'In Progress', 'Pending') and i % 3 == 0:
                 call.FollowUpDate = now + timedelta(days=1 if i % 2 == 0 else -1)
+            # Attach 1–2 tags so Top tags analytics populate
+            if tags:
+                call.tags = [tags[i % len(tags)], tags[(i + 2) % len(tags)]]
             db.session.add(call)
+            db.session.flush()
+            actor_id = assignees[i % len(assignees)] if assignees else (users[0].UserID if users else None)
+            if actor_id:
+                db.session.add(CallActivity(
+                    CallID=call.CallID,
+                    UserID=actor_id,
+                    Action='Created',
+                    Details=f'Demo seed · {status}',
+                    ActivityDate=call.DateLogged,
+                ))
             if not Contact.query.filter_by(PhoneNumber=phone).first():
                 db.session.add(Contact(
                     PhoneNumber=phone,
