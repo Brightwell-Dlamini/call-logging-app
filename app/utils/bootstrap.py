@@ -53,6 +53,53 @@ DEMO_CALLS = [
 ]
 
 
+def _enrich_existing_calls():
+    """Attach tags, activity, satisfaction to existing calls missing them."""
+    from app import db
+    from app.models import CallLog, Tag, User, CallActivity
+
+    notes = []
+    tags = Tag.query.order_by(Tag.TagID).all()
+    users = User.query.limit(3).all()
+    actor_id = users[0].UserID if users else None
+    calls = CallLog.query.order_by(CallLog.CallID).limit(50).all()
+
+    tagged = 0
+    activities = 0
+    filled = 0
+    for i, call in enumerate(calls):
+        if tags and not (call.tags or []):
+            call.tags = [tags[i % len(tags)], tags[(i + 2) % len(tags)]]
+            tagged += 1
+        if call.Status in ('Resolved', 'Closed'):
+            if call.TimeSpent is None:
+                call.TimeSpent = 30
+                filled += 1
+            if call.SatisfactionRating is None:
+                call.SatisfactionRating = 4 + (i % 2)
+                filled += 1
+            if not call.Resolution:
+                call.Resolution = 'Issue resolved'
+                filled += 1
+        if actor_id and CallActivity.query.filter_by(CallID=call.CallID).count() == 0:
+            db.session.add(CallActivity(
+                CallID=call.CallID,
+                UserID=actor_id,
+                Action='Created',
+                Details='Demo enrich',
+                ActivityDate=call.DateLogged or datetime.utcnow(),
+            ))
+            activities += 1
+
+    if tagged:
+        notes.append(f'tagged {tagged} calls')
+    if activities:
+        notes.append(f'{activities} activities')
+    if filled:
+        notes.append(f'filled {filled} metrics')
+    return notes
+
+
 def bootstrap_demo_data(include_sample_calls=True):
     """Create demo users, departments, tags, canned responses, dispositions, and optional sample calls.
 
@@ -135,7 +182,6 @@ def bootstrap_demo_data(include_sample_calls=True):
             )
             if status in ('Open', 'In Progress', 'Pending') and i % 3 == 0:
                 call.FollowUpDate = now + timedelta(days=1 if i % 2 == 0 else -1)
-            # Attach 1–2 tags so Top tags analytics populate
             if tags:
                 call.tags = [tags[i % len(tags)], tags[(i + 2) % len(tags)]]
             db.session.add(call)
@@ -156,5 +202,9 @@ def bootstrap_demo_data(include_sample_calls=True):
                     IsVIP=(i % 5 == 0),
                 ))
         created.append(str(len(DEMO_CALLS)) + ' sample calls')
+    elif include_sample_calls and CallLog.query.count() > 0:
+        # Re-seed enrich: fill gaps so dashboard analytics are complete
+        for note in _enrich_existing_calls():
+            created.append(note)
 
     return created
