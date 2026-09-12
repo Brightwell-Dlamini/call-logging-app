@@ -48,6 +48,7 @@
 </div>
 {% endif %}
 
+{# Primary KPI row — always show full set #}
 <div class="stat-grid">
     {% if current_user.Role == 'Agent' %}
     <a href="{{ url_for('board.my_queue') }}" class="stat-card" style="text-decoration:none;color:inherit;">
@@ -86,28 +87,62 @@
     {% endif %}
 </div>
 
-<div class="row g-3 mb-4">
+{# Secondary KPI row — SLA, quality, throughput (always visible) #}
+<div class="stat-grid" style="margin-top:0.75rem;">
+    <div class="stat-card">
+        <div class="stat-icon rose"><i class="fas fa-clock"></i></div>
+        <div><div class="stat-label">SLA breaches</div><div class="stat-value">{{ stats.sla_breach or 0 }}</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon amber"><i class="fas fa-hourglass-half"></i></div>
+        <div><div class="stat-label">SLA at risk</div><div class="stat-value">{{ stats.sla_warn or 0 }}</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon indigo"><i class="fas fa-user-slash"></i></div>
+        <div><div class="stat-label">Unassigned</div><div class="stat-value">{{ stats.unassigned or 0 }}</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-star"></i></div>
+        <div><div class="stat-label">Avg satisfaction</div><div class="stat-value">{% if stats.avg_satisfaction is not none %}{{ stats.avg_satisfaction }}{% else %}—{% endif %}</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fas fa-stopwatch"></i></div>
+        <div><div class="stat-label">Avg handle (min)</div><div class="stat-value">{% if stats.avg_handle_mins is not none %}{{ stats.avg_handle_mins|int }}{% else %}—{% endif %}</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-circle-check"></i></div>
+        <div><div class="stat-label">Resolved today</div><div class="stat-value">{{ stats.resolved_today or 0 }}</div></div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4" style="margin-top:1rem;">
     <div class="col-lg-8">
         <div class="row g-3">
-            <div class="col-md-4">
+            <div class="col-md-6 col-xl-3">
                 <div class="chart-panel"><div class="chart-title">By status</div><canvas id="statusChart" height="220"></canvas></div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6 col-xl-3">
+                <div class="chart-panel"><div class="chart-title">By priority</div><canvas id="priorityChart" height="220"></canvas></div>
+            </div>
+            <div class="col-md-6 col-xl-3">
                 <div class="chart-panel"><div class="chart-title">Last 7 days</div><canvas id="dailyChart" height="220"></canvas></div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6 col-xl-3">
                 <div class="chart-panel"><div class="chart-title">By department</div><canvas id="deptChart" height="220"></canvas></div>
             </div>
         </div>
-        {% if current_user.is_manager and stats.workload %}
+
+        {# Team workload — always shown for managers/admins #}
+        {% if current_user.is_manager %}
         <div class="table-wrap mt-3">
             <div class="card-header"><span>Team workload</span><a href="{{ url_for('board.workload') }}" class="btn btn-ghost btn-sm">Full view</a></div>
             <div class="table-responsive">
+                {% if stats.workload %}
                 <table class="table">
                     <thead><tr><th>Agent</th><th>Open</th><th>Load</th></tr></thead>
                     <tbody>
                         {% set max_c = stats.workload|map(attribute='open_count')|max if stats.workload else 1 %}
-                        {% for w in stats.workload[:6] %}
+                        {% for w in stats.workload[:8] %}
                         <tr>
                             <td class="fw-medium">{{ w.name }}</td>
                             <td>{{ w.open_count }}</td>
@@ -116,21 +151,28 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                {% else %}
+                <div class="empty-state py-4"><p class="mb-0">No active agents yet.</p></div>
+                {% endif %}
             </div>
         </div>
         {% endif %}
-        {% if stats.tag_counts %}
+
+        {# Top tags — always shown #}
         <div class="table-wrap mt-3">
             <div class="card-header"><span>Top tags</span></div>
             <div class="p-3 d-flex flex-wrap gap-2">
-                {% for t in stats.tag_counts %}
-                <a href="{{ url_for('calls.list_calls', tag=t.id) }}" class="badge" style="background:{{ t.colour }};color:#fff;font-size:0.8rem;text-decoration:none;">
-                    {{ t.name }} · {{ t.count }}
-                </a>
-                {% endfor %}
+                {% if stats.tag_counts %}
+                    {% for t in stats.tag_counts %}
+                    <a href="{{ url_for('calls.list_calls', tag=t.id) }}" class="badge" style="background:{{ t.colour }};color:#fff;font-size:0.8rem;text-decoration:none;">
+                        {{ t.name }} · {{ t.count }}
+                    </a>
+                    {% endfor %}
+                {% else %}
+                <p class="text-muted mb-0" style="font-size:0.9rem;">No tags applied to calls yet. Tag calls from the detail view to populate this chart.</p>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
     </div>
     <div class="col-lg-4">
         <div class="table-wrap h-100">
@@ -145,7 +187,7 @@
                     <div class="activity-time">{{ a.when.strftime('%H:%M') if a.when else '' }}</div>
                 </a>
                 {% else %}
-                <div class="empty-state py-4"><p class="mb-0">No activity yet.</p></div>
+                <div class="empty-state py-4"><p class="mb-0">No activity yet. Actions on calls will appear here.</p></div>
                 {% endfor %}
             </div>
         </div>
@@ -181,27 +223,125 @@
 
 {% block extra_js %}
 <script>
-const statusData = {{ stats.status_counts | tojson }};
-const dailyData = {{ stats.calls_per_day | tojson }};
-const deptData = {{ stats.dept_counts | tojson }};
+const statusData = {{ stats.status_counts | tojson }} || {};
+const priorityData = {{ stats.priority_counts | tojson }} || {};
+const dailyData = {{ stats.calls_per_day | tojson }} || {};
+const deptData = {{ stats.dept_counts | tojson }} || {};
+
 const chartDefaults = {
-  responsive: true, maintainAspectRatio: true,
-  plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, usePointStyle: true, padding: 16, font: { family: 'Inter', size: 12 } } } }
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: {
+    legend: {
+      position: 'bottom',
+      labels: { boxWidth: 10, usePointStyle: true, padding: 16, font: { family: 'Inter', size: 12 } }
+    }
+  }
 };
-new Chart(document.getElementById('statusChart'), {
-  type: 'doughnut',
-  data: { labels: Object.keys(statusData), datasets: [{ data: Object.values(statusData), backgroundColor: ['#6366F1','#F59E0B','#94A3B8','#10B981','#0F172A'], borderWidth: 0 }] },
-  options: { ...chartDefaults, cutout: '68%' }
-});
-new Chart(document.getElementById('dailyChart'), {
-  type: 'bar',
-  data: { labels: Object.keys(dailyData), datasets: [{ data: Object.values(dailyData), backgroundColor: '#6366F1', borderRadius: 6, maxBarThickness: 32 }] },
-  options: { ...chartDefaults, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-});
-new Chart(document.getElementById('deptChart'), {
-  type: 'bar',
-  data: { labels: Object.keys(deptData), datasets: [{ data: Object.values(deptData), backgroundColor: '#8B5CF6', borderRadius: 6, maxBarThickness: 24 }] },
-  options: { ...chartDefaults, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } }, y: { grid: { display: false } } } }
-});
+
+function hasData(obj) {
+  return obj && Object.keys(obj).length > 0 && Object.values(obj).some(v => Number(v) > 0);
+}
+
+// Status doughnut
+(() => {
+  const el = document.getElementById('statusChart');
+  if (!el) return;
+  const labels = Object.keys(statusData);
+  const values = Object.values(statusData);
+  new Chart(el, {
+    type: 'doughnut',
+    data: {
+      labels: labels.length ? labels : ['No data'],
+      datasets: [{
+        data: values.length ? values : [1],
+        backgroundColor: labels.length
+          ? ['#6366F1','#F59E0B','#94A3B8','#10B981','#0F172A']
+          : ['#E2E8F0'],
+        borderWidth: 0
+      }]
+    },
+    options: { ...chartDefaults, cutout: '68%' }
+  });
+})();
+
+// Priority doughnut
+(() => {
+  const el = document.getElementById('priorityChart');
+  if (!el) return;
+  const order = ['Low', 'Medium', 'High', 'Critical'];
+  const labels = order.filter(k => priorityData[k] !== undefined);
+  const values = labels.map(k => priorityData[k] || 0);
+  const colours = { Low: '#94A3B8', Medium: '#6366F1', High: '#F59E0B', Critical: '#EF4444' };
+  new Chart(el, {
+    type: 'doughnut',
+    data: {
+      labels: labels.length ? labels : ['No data'],
+      datasets: [{
+        data: values.some(v => v > 0) ? values : [1],
+        backgroundColor: labels.length ? labels.map(l => colours[l] || '#94A3B8') : ['#E2E8F0'],
+        borderWidth: 0
+      }]
+    },
+    options: { ...chartDefaults, cutout: '68%' }
+  });
+})();
+
+// Daily bar
+(() => {
+  const el = document.getElementById('dailyChart');
+  if (!el) return;
+  const labels = Object.keys(dailyData);
+  const values = Object.values(dailyData);
+  new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: labels.length ? labels.map(d => d.slice(5)) : ['—'],
+      datasets: [{
+        data: values.length ? values : [0],
+        backgroundColor: '#6366F1',
+        borderRadius: 6,
+        maxBarThickness: 32
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+})();
+
+// Department horizontal bar
+(() => {
+  const el = document.getElementById('deptChart');
+  if (!el) return;
+  const labels = Object.keys(deptData);
+  const values = Object.values(deptData);
+  new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: labels.length ? labels : ['No department data'],
+      datasets: [{
+        data: values.length ? values : [0],
+        backgroundColor: '#8B5CF6',
+        borderRadius: 6,
+        maxBarThickness: 24
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { stepSize: 1 } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+})();
 </script>
 {% endblock %}
