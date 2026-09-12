@@ -24,9 +24,28 @@
   font-size: 0.75rem;
 }
 
-/* Admin stat icon variants if missing */
+/* Stat icon variants used on dashboard */
 .stat-icon.green { background: rgba(16, 185, 129, 0.15); color: #059669; }
 .stat-icon.slate { background: rgba(100, 116, 139, 0.15); color: #475569; }
+.stat-icon.indigo {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+}
+.stat-icon.violet {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+
+/* Second KPI row can hold 6 cards cleanly */
+.stat-grid.stat-grid-6 {
+  grid-template-columns: repeat(6, 1fr);
+}
+@media (max-width: 1200px) {
+  .stat-grid.stat-grid-6 { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 560px) {
+  .stat-grid.stat-grid-6 { grid-template-columns: 1fr 1fr; }
+}
 
 [data-theme="dark"] .inbox-row.is-overdue td,
 .theme-dark .inbox-row.is-overdue td {
