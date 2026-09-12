@@ -4,21 +4,38 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">By department</h1>
-        <p class="page-subtitle">Call volume per team</p>
+        <p class="page-subtitle">Call volume per team · {{ from_date }} to {{ to_date }}</p>
     </div>
     <div class="page-actions">
         <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
-            <i class="fas fa-arrow-left"></i> Reports
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Reports
         </a>
     </div>
 </div>
 
+<div class="filter-bar mb-4">
+    <form method="GET" class="row align-items-end g-2">
+        <div class="col-auto">
+            <label class="form-label" for="dept-from">From</label>
+            <input id="dept-from" type="date" name="from" class="form-control" value="{{ from_date }}">
+        </div>
+        <div class="col-auto">
+            <label class="form-label" for="dept-to">To</label>
+            <input id="dept-to" type="date" name="to" class="form-control" value="{{ to_date }}">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Update</button>
+        </div>
+    </form>
+</div>
+
 <div class="table-wrap" style="max-width:560px;">
     <table class="table">
+        <caption class="visually-hidden">Call counts by department from {{ from_date }} to {{ to_date }}</caption>
         <thead>
             <tr>
-                <th>Department</th>
-                <th style="text-align:right;">Calls</th>
+                <th scope="col">Department</th>
+                <th scope="col" style="text-align:right;">Calls</th>
             </tr>
         </thead>
         <tbody>
@@ -31,8 +48,8 @@
             <tr>
                 <td colspan="2">
                     <div class="empty-state">
-                        <div class="empty-icon"><i class="fas fa-building"></i></div>
-                        <p>No data available.</p>
+                        <div class="empty-icon" aria-hidden="true"><i class="fas fa-building"></i></div>
+                        <p>No data available for this window.</p>
                     </div>
                 </td>
             </tr>
