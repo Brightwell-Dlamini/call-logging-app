@@ -19,6 +19,12 @@
     </div>
 </div>
 
+<div class="focus-mode-banner" id="focusModeBanner">
+    <i class="fas fa-eye"></i>
+    <div><strong>Focus mode is on</strong> — charts are hidden to reduce distraction.</div>
+    <button type="button" class="btn btn-secondary btn-sm" id="exitFocusMode">Show charts</button>
+</div>
+
 {% if stats.overdue_followups %}
 <div class="crit-banner" style="border-left-color:#ef4444;">
     <i class="fas fa-calendar-xmark"></i>
@@ -220,6 +226,23 @@
 {% block extra_js %}
 <script>
 (function () {
+  // Exit focus mode from dashboard banner
+  var exitBtn = document.getElementById('exitFocusMode');
+  if (exitBtn) {
+    exitBtn.addEventListener('click', function () {
+      document.body.classList.remove('focus-mode');
+      document.documentElement.classList.remove('focus-mode-pending');
+      try { localStorage.setItem('cl-focus-mode', '0'); } catch (e) {}
+      var ft = document.getElementById('focusToggle');
+      if (ft) ft.classList.remove('active');
+      if (window.clToast) window.clToast('info', 'Focus mode off — charts visible');
+      // Charts may need a resize after becoming visible again
+      setTimeout(function () {
+        window.dispatchEvent(new Event('resize'));
+      }, 50);
+    });
+  }
+
   if (typeof Chart === 'undefined') {
     console.error('Chart.js failed to load');
     return;
@@ -251,7 +274,6 @@
     }
   }
 
-  // Status
   safeChart('statusChart', {
     type: 'doughnut',
     data: {
@@ -267,7 +289,6 @@
     options: Object.assign({}, chartDefaults, { cutout: '68%' })
   });
 
-  // Priority
   (function () {
     const order = ['Low', 'Medium', 'High', 'Critical'];
     const labels = order.filter(function (k) { return priorityData[k] !== undefined; });
@@ -288,7 +309,6 @@
     });
   })();
 
-  // Daily
   safeChart('dailyChart', {
     type: 'bar',
     data: {
@@ -309,7 +329,6 @@
     })
   });
 
-  // Department
   safeChart('deptChart', {
     type: 'bar',
     data: {
