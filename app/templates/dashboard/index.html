@@ -48,7 +48,6 @@
 </div>
 {% endif %}
 
-{# Primary KPI row — always show full set #}
 <div class="stat-grid">
     {% if current_user.Role == 'Agent' %}
     <a href="{{ url_for('board.my_queue') }}" class="stat-card" style="text-decoration:none;color:inherit;">
@@ -87,8 +86,7 @@
     {% endif %}
 </div>
 
-{# Secondary KPI row — SLA, quality, throughput (always visible) #}
-<div class="stat-grid" style="margin-top:0.75rem;">
+<div class="stat-grid stat-grid-6" style="margin-top:0.75rem;">
     <div class="stat-card">
         <div class="stat-icon rose"><i class="fas fa-clock"></i></div>
         <div><div class="stat-label">SLA breaches</div><div class="stat-value">{{ stats.sla_breach or 0 }}</div></div>
@@ -132,7 +130,6 @@
             </div>
         </div>
 
-        {# Team workload — always shown for managers/admins #}
         {% if current_user.is_manager %}
         <div class="table-wrap mt-3">
             <div class="card-header"><span>Team workload</span><a href="{{ url_for('board.workload') }}" class="btn btn-ghost btn-sm">Full view</a></div>
@@ -158,7 +155,6 @@
         </div>
         {% endif %}
 
-        {# Top tags — always shown #}
         <div class="table-wrap mt-3">
             <div class="card-header"><span>Top tags</span></div>
             <div class="p-3 d-flex flex-wrap gap-2">
@@ -169,7 +165,7 @@
                     </a>
                     {% endfor %}
                 {% else %}
-                <p class="text-muted mb-0" style="font-size:0.9rem;">No tags applied to calls yet. Tag calls from the detail view to populate this chart.</p>
+                <p class="text-muted mb-0" style="font-size:0.9rem;">No tags applied to calls yet. Re-run seed or tag calls from the detail view.</p>
                 {% endif %}
             </div>
         </div>
@@ -187,7 +183,7 @@
                     <div class="activity-time">{{ a.when.strftime('%H:%M') if a.when else '' }}</div>
                 </a>
                 {% else %}
-                <div class="empty-state py-4"><p class="mb-0">No activity yet. Actions on calls will appear here.</p></div>
+                <div class="empty-state py-4"><p class="mb-0">No activity yet. Re-run seed or act on a call.</p></div>
                 {% endfor %}
             </div>
         </div>
@@ -223,124 +219,116 @@
 
 {% block extra_js %}
 <script>
-const statusData = {{ stats.status_counts | tojson }} || {};
-const priorityData = {{ stats.priority_counts | tojson }} || {};
-const dailyData = {{ stats.calls_per_day | tojson }} || {};
-const deptData = {{ stats.dept_counts | tojson }} || {};
+(function () {
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js failed to load');
+    return;
+  }
 
-const chartDefaults = {
-  responsive: true,
-  maintainAspectRatio: true,
-  plugins: {
-    legend: {
-      position: 'bottom',
-      labels: { boxWidth: 10, usePointStyle: true, padding: 16, font: { family: 'Inter', size: 12 } }
+  const statusData = {{ stats.status_counts | tojson }} || {};
+  const priorityData = {{ stats.priority_counts | tojson }} || {};
+  const dailyData = {{ stats.calls_per_day | tojson }} || {};
+  const deptData = {{ stats.dept_counts | tojson }} || {};
+
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { boxWidth: 10, usePointStyle: true, padding: 16, font: { family: 'Inter', size: 12 } }
+      }
+    }
+  };
+
+  function safeChart(id, config) {
+    try {
+      const el = document.getElementById(id);
+      if (!el) return;
+      new Chart(el, config);
+    } catch (err) {
+      console.error('Chart failed for ' + id, err);
     }
   }
-};
 
-function hasData(obj) {
-  return obj && Object.keys(obj).length > 0 && Object.values(obj).some(v => Number(v) > 0);
-}
-
-// Status doughnut
-(() => {
-  const el = document.getElementById('statusChart');
-  if (!el) return;
-  const labels = Object.keys(statusData);
-  const values = Object.values(statusData);
-  new Chart(el, {
+  // Status
+  safeChart('statusChart', {
     type: 'doughnut',
     data: {
-      labels: labels.length ? labels : ['No data'],
+      labels: Object.keys(statusData).length ? Object.keys(statusData) : ['No data'],
       datasets: [{
-        data: values.length ? values : [1],
-        backgroundColor: labels.length
+        data: Object.keys(statusData).length ? Object.values(statusData) : [1],
+        backgroundColor: Object.keys(statusData).length
           ? ['#6366F1','#F59E0B','#94A3B8','#10B981','#0F172A']
           : ['#E2E8F0'],
         borderWidth: 0
       }]
     },
-    options: { ...chartDefaults, cutout: '68%' }
+    options: Object.assign({}, chartDefaults, { cutout: '68%' })
   });
-})();
 
-// Priority doughnut
-(() => {
-  const el = document.getElementById('priorityChart');
-  if (!el) return;
-  const order = ['Low', 'Medium', 'High', 'Critical'];
-  const labels = order.filter(k => priorityData[k] !== undefined);
-  const values = labels.map(k => priorityData[k] || 0);
-  const colours = { Low: '#94A3B8', Medium: '#6366F1', High: '#F59E0B', Critical: '#EF4444' };
-  new Chart(el, {
-    type: 'doughnut',
-    data: {
-      labels: labels.length ? labels : ['No data'],
-      datasets: [{
-        data: values.some(v => v > 0) ? values : [1],
-        backgroundColor: labels.length ? labels.map(l => colours[l] || '#94A3B8') : ['#E2E8F0'],
-        borderWidth: 0
-      }]
-    },
-    options: { ...chartDefaults, cutout: '68%' }
-  });
-})();
+  // Priority
+  (function () {
+    const order = ['Low', 'Medium', 'High', 'Critical'];
+    const labels = order.filter(function (k) { return priorityData[k] !== undefined; });
+    const values = labels.map(function (k) { return priorityData[k] || 0; });
+    const colours = { Low: '#94A3B8', Medium: '#6366F1', High: '#F59E0B', Critical: '#EF4444' };
+    const has = values.some(function (v) { return v > 0; });
+    safeChart('priorityChart', {
+      type: 'doughnut',
+      data: {
+        labels: labels.length ? labels : ['No data'],
+        datasets: [{
+          data: has ? values : [1],
+          backgroundColor: labels.length ? labels.map(function (l) { return colours[l] || '#94A3B8'; }) : ['#E2E8F0'],
+          borderWidth: 0
+        }]
+      },
+      options: Object.assign({}, chartDefaults, { cutout: '68%' })
+    });
+  })();
 
-// Daily bar
-(() => {
-  const el = document.getElementById('dailyChart');
-  if (!el) return;
-  const labels = Object.keys(dailyData);
-  const values = Object.values(dailyData);
-  new Chart(el, {
+  // Daily
+  safeChart('dailyChart', {
     type: 'bar',
     data: {
-      labels: labels.length ? labels.map(d => d.slice(5)) : ['—'],
+      labels: Object.keys(dailyData).length ? Object.keys(dailyData).map(function (d) { return String(d).slice(5); }) : ['—'],
       datasets: [{
-        data: values.length ? values : [0],
+        data: Object.keys(dailyData).length ? Object.values(dailyData) : [0],
         backgroundColor: '#6366F1',
         borderRadius: 6,
         maxBarThickness: 32
       }]
     },
-    options: {
-      ...chartDefaults,
+    options: Object.assign({}, chartDefaults, {
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false } },
         y: { beginAtZero: true, ticks: { stepSize: 1 } }
       }
-    }
+    })
   });
-})();
 
-// Department horizontal bar
-(() => {
-  const el = document.getElementById('deptChart');
-  if (!el) return;
-  const labels = Object.keys(deptData);
-  const values = Object.values(deptData);
-  new Chart(el, {
+  // Department
+  safeChart('deptChart', {
     type: 'bar',
     data: {
-      labels: labels.length ? labels : ['No department data'],
+      labels: Object.keys(deptData).length ? Object.keys(deptData) : ['No department data'],
       datasets: [{
-        data: values.length ? values : [0],
+        data: Object.keys(deptData).length ? Object.values(deptData) : [0],
         backgroundColor: '#8B5CF6',
         borderRadius: 6,
         maxBarThickness: 24
       }]
     },
-    options: {
-      ...chartDefaults,
+    options: Object.assign({}, chartDefaults, {
       indexAxis: 'y',
       plugins: { legend: { display: false } },
       scales: {
         x: { beginAtZero: true, ticks: { stepSize: 1 } },
         y: { grid: { display: false } }
       }
-    }
+    })
   });
 })();
 </script>
