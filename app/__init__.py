@@ -3,8 +3,9 @@ Call Logging Application factory.
 """
 import logging
 import os
+import uuid
 from logging.handlers import RotatingFileHandler
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, g, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -71,6 +72,32 @@ def create_app(config_name=None):
     app.register_blueprint(api_extras_bp, url_prefix='/api')
     app.register_blueprint(board_bp)
     app.register_blueprint(import_bp)
+
+    @app.before_request
+    def _assign_request_id():
+        incoming = (request.headers.get('X-Request-ID') or '').strip()
+        if incoming and len(incoming) <= 64 and incoming.replace('-', '').isalnum():
+            g.request_id = incoming
+        else:
+            g.request_id = uuid.uuid4().hex
+
+    @app.after_request
+    def _security_headers(response):
+        request_id = getattr(g, 'request_id', None) or uuid.uuid4().hex
+        response.headers.setdefault('X-Request-ID', request_id)
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'DENY')
+        response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+        response.headers.setdefault(
+            'Permissions-Policy',
+            'camera=(), microphone=(), geolocation=()',
+        )
+        if _is_production():
+            response.headers.setdefault(
+                'Strict-Transport-Security',
+                'max-age=31536000; includeSubDomains',
+            )
+        return response
 
     @app.errorhandler(404)
     def not_found_error(error):

@@ -2,6 +2,7 @@
 Authentication blueprint: login, logout, registration (admin only).
 """
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from flask import (
     Blueprint, render_template, redirect, url_for, flash, request, session
 )
@@ -15,6 +16,24 @@ from app.utils.audit import log_audit
 auth_bp = Blueprint('auth', __name__)
 
 _login_attempts = {}
+
+
+def safe_next_url(target, fallback):
+    """
+    Allow only same-origin relative paths.
+
+    Rejects empty values, scheme-relative URLs (//host), backslash tricks,
+    and any value that parses as having a host or scheme.
+    """
+    if not target or not isinstance(target, str):
+        return fallback
+    candidate = target.strip()
+    if not candidate.startswith('/') or candidate.startswith('//') or '\\' in candidate:
+        return fallback
+    parsed = urlparse(candidate)
+    if parsed.scheme or parsed.netloc:
+        return fallback
+    return candidate
 
 
 def _is_locked(username: str) -> bool:
@@ -84,9 +103,7 @@ def login():
         log_audit('auth.login', user_id=user.UserID, target_type='user', target_id=user.UserID)
         db.session.commit()
         session.permanent = True
-        next_page = request.args.get('next')
-        if not next_page or not next_page.startswith('/'):
-            next_page = url_for('dashboard.index')
+        next_page = safe_next_url(request.args.get('next'), url_for('dashboard.index'))
         flash(f'Welcome back, {user.FullName}.', 'success')
         return redirect(next_page)
     return render_template('auth/login.html', form=form)

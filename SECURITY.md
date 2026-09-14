@@ -31,6 +31,8 @@ Use this before marking the project “production ready” or sharing credential
 | Rate limit | Flask-Limiter on app; tighter limits on login, import, tokens, change feed |
 | API enums | Status, priority, and call type validated on write |
 | Uploads | `MAX_CONTENT_LENGTH` (default 2 MiB); CSV import allows `.csv`/`.txt` only, 2000-row cap |
+| Open redirects | Post-login `next` accepts same-origin relative paths only |
+| Response headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `X-Request-ID`; HSTS in production |
 
 Passwords are never written to audit details. Login failures record username only. API token secrets are shown once at creation and are not stored in audit rows.
 
@@ -45,6 +47,7 @@ Passwords are never written to audit details. Login failures record username onl
 
 - [ ] Confirm `/health` returns `"backend": "postgres"` and `"database": "ok"`.
 - [ ] Confirm HTTPS only (Vercel provides this).
+- [ ] Confirm `/health` includes `X-Frame-Options: DENY` and an `X-Request-ID`.
 - [ ] Repo: avoid committing `.env`, real connection strings, or production dumps.
 - [ ] Review Admin → Audit log after go-live (filter source = system).
 
