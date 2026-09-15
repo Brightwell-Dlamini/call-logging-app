@@ -3,7 +3,8 @@
 Production-style **call logging system** for organisational support desks: triage inbox, kanban board, agent queue, workload, reports, audit trail, REST API, saved views, in-app notifications, and API tokens.
 
 **Live:** [call-logging-app-six.vercel.app](https://call-logging-app-six.vercel.app)  
-**Stack:** Flask · SQLAlchemy · Neon Postgres · Vercel serverless · Bootstrap 5
+**Stack:** Flask · SQLAlchemy · Neon Postgres · Vercel serverless · Bootstrap 5  
+**Security:** see **[SECURITY.md](SECURITY.md)**
 
 ---
 
@@ -25,7 +26,7 @@ Neon Postgres (pooler URL, NullPool on Vercel)
 
 | Layer | Responsibility |
 |-------|----------------|
-| **Blueprints** | `auth`, `dashboard`, `calls`, `board`, `reports`, `admin`, `api`, `api_extras` |
+| **Blueprints** | `auth`, `dashboard`, `calls`, `board`, `reports`, `admin`, `api`, `api_extras`, `import_calls` |
 | **Models** | User, CallLog, CallActivity, SystemAudit, Department, Tag, CannedResponse, Contact, SavedView, Notification, ApiToken |
 | **Security** | Flask-Login sessions, CSRF, hashed passwords, role decorators, personal API tokens |
 | **Persistence** | `DATABASE_URL` → `postgresql+psycopg` + `sslmode=require`; SQLite fallback |
@@ -51,6 +52,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - Reports: daily, monthly, agent, department · Excel & PDF
 - **Audit trail** – call changes + system events
 - **Dark mode** – system preference + manual toggle
+- **CSV bulk import** – administrator import with size limits
 
 ### New / Enhanced
 - **Saved Views** – pin and reuse filter combinations (status, tags, department, overdue, etc.)
@@ -60,7 +62,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - Improved SLA engine with per-priority warn/breach hours
 - Contact auto-creation on call logging
 
-### REST API (session or future token)
+### REST API (session or personal token)
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/api/dashboard/stats` | Includes overdue, tag_counts, SLA, unread notifications |
@@ -82,6 +84,8 @@ Error shape: `{ "ok": false, "error": "..." }`.
 
 ## Demo credentials
 
+Local / non-production bootstrap only. Change these before any shared deployment.
+
 | Username | Password | Role |
 |----------|----------|------|
 | admin | admin123 | Admin |
@@ -99,9 +103,11 @@ See **[DEMO.md](DEMO.md)** for a 5-minute viva script.
 | `DATABASE_URL` | Yes (prod) | Neon connection string |
 | `SECRET_KEY` | Yes | Strong random string |
 | `FLASK_ENV` | Recommended | `production` |
-| `ENABLE_SEED` | Optional | Set to `1` to allow `/seed` in production |
+| `ENABLE_SEED` | Optional | Set to `1` only to allow `/seed` in production |
+| `SEED_TOKEN` | Recommended if seeding | Required as `X-Seed-Token` or `?token=` when set |
+| `MAX_CONTENT_LENGTH` | Optional | Request body cap (default 2 MiB) |
 
-**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users.
+**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Production seed responses do not include demo passwords. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users. See [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -116,7 +122,7 @@ python run.py
 
 Open http://127.0.0.1:5000
 
-New tables (`saved_views`, `notifications`, `api_tokens`, etc.) are created automatically via `db.create_all()` on startup.
+New tables (`saved_views`, `notifications`, `api_tokens`, etc.) are created automatically via `db.create_all()` on startup. `ensure_schema` and `ensure_indexes` add columns and indexes that `create_all` cannot apply to existing tables.
 
 ---
 
@@ -133,7 +139,7 @@ pytest tests/ -v
 
 ```
 app/
-  blueprints/   # auth, calls, board, dashboard, admin, reports, api, api_extras
+  blueprints/   # auth, calls, board, dashboard, admin, reports, api, api_extras, import_calls
   models/       # user, call, department, tag, canned, audit, contact,
                 # saved_view, notification, api_token
   templates/    # shell UI + board + reports + admin

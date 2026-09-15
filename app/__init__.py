@@ -116,7 +116,14 @@ def create_app(config_name=None):
 
     @app.route('/seed', methods=['POST', 'GET'])
     def seed_endpoint():
+        from app.utils.audit import log_audit
+
         if _is_production() and os.environ.get('ENABLE_SEED') != '1':
+            log_audit('ops.seed_denied', 'ENABLE_SEED not set in production', target_type='ops', target_id='seed')
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
             return {
                 'status': 'disabled',
                 'message': 'Seed endpoint disabled. Set ENABLE_SEED=1 to allow.',
@@ -126,6 +133,11 @@ def create_app(config_name=None):
         if expected_token:
             provided = request.headers.get('X-Seed-Token') or request.args.get('token') or ''
             if provided != expected_token:
+                log_audit('ops.seed_denied', 'invalid or missing seed token', target_type='ops', target_id='seed')
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
                 return {'status': 'forbidden', 'message': 'Invalid or missing seed token.'}, 403
 
         from app.utils.bootstrap import bootstrap_demo_data
@@ -133,19 +145,38 @@ def create_app(config_name=None):
         try:
             created = bootstrap_demo_data(include_sample_calls=True)
             if created:
+                log_audit(
+                    'ops.seed',
+                    f'created={created}',
+                    target_type='ops',
+                    target_id='seed',
+                )
                 db.session.commit()
                 payload = {'status': 'ok', 'created': created}
-                if any(label in ('admin', 'agent1', 'manager1') for label in created):
+                # Never echo demo passwords from a production deployment.
+                if not _is_production() and any(
+                    label in ('admin', 'agent1', 'manager1') for label in created
+                ):
                     payload['logins'] = {
                         'admin': 'admin123',
                         'agent1': 'agent123',
                         'manager1': 'manager123',
                     }
                     payload['warning'] = 'Change demo passwords before exposing this instance.'
+                elif _is_production() and any(
+                    label in ('admin', 'agent1', 'manager1') for label in created
+                ):
+                    payload['warning'] = (
+                        'Demo accounts may have been created. '
+                        'Passwords are not returned in production; change them immediately.'
+                    )
                 return payload, 200
+            log_audit('ops.seed', 'already seeded', target_type='ops', target_id='seed')
+            db.session.commit()
             return {'status': 'ok', 'message': 'Already seeded'}, 200
         except Exception as e:
             db.session.rollback()
+            app.logger.warning('seed failed: %s', type(e).__name__)
             return {'status': 'error', 'message': type(e).__name__}, 500
 
     csrf.exempt(health)
