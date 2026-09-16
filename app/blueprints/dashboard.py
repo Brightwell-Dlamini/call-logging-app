@@ -1,7 +1,7 @@
 """
 Dashboard blueprint with statistics and charts data.
 """
-from flask import Blueprint, render_template
+from flask import Blueprint, make_response, render_template
 from flask_login import login_required, current_user
 from app.utils.helpers import get_dashboard_stats
 from app.utils.decorators import login_required_active
@@ -15,10 +15,13 @@ dashboard_bp = Blueprint('dashboard', __name__)
 @login_required_active
 def index():
     """Main dashboard with role-aware statistics."""
-    # Avoid caching personal my_open across users on serverless
     stats = get_dashboard_stats(user=current_user)
-    return render_template(
+    response = make_response(render_template(
         'dashboard/index.html',
         stats=stats,
         title='Dashboard'
-    )
+    ))
+    # Personal my_open / notifications must not be reused across users.
+    response.headers['Cache-Control'] = 'private, no-store, no-cache, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    return response
