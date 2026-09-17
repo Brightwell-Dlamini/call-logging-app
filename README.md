@@ -15,7 +15,7 @@ Browser (SPA-like UI)
     v
 Vercel Serverless (Python / run.py entrypoint)
     |  Flask application factory (app/__init__.py)
-    |  CSRF · Login · Rate limit · RBAC decorators
+    |  CSRF · Login · Rate limit · RBAC decorators · Bearer PAT
     v
 Neon Postgres (pooler URL, NullPool on Vercel)
     tables: users, call_log, call_activity, system_audit, departments,
@@ -27,7 +27,7 @@ Neon Postgres (pooler URL, NullPool on Vercel)
 |-------|----------------|
 | **Blueprints** | `auth`, `dashboard`, `calls`, `board`, `reports`, `admin`, `api`, `api_extras` |
 | **Models** | User, CallLog, CallActivity, SystemAudit, Department, Tag, CannedResponse, Contact, SavedView, Notification, ApiToken |
-| **Security** | Flask-Login sessions, CSRF, hashed passwords, role decorators, personal API tokens |
+| **Security** | Flask-Login sessions, CSRF (browser), hashed passwords, role decorators, personal API tokens (`Authorization: Bearer clp_…`) |
 | **Persistence** | `DATABASE_URL` → `postgresql+psycopg` + `sslmode=require`; SQLite fallback |
 | **Ops UI** | Inbox + filters, kanban, my queue, workload, SLA chips, tags, follow-ups, saved views |
 
@@ -60,7 +60,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - Improved SLA engine with per-priority warn/breach hours
 - Contact auto-creation on call logging
 
-### REST API (session or future token)
+### REST API (session cookie or Bearer token)
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/api/dashboard/stats` | Includes overdue, tag_counts, SLA, unread notifications |
@@ -77,6 +77,20 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 | GET | `/api/tags`, `/api/canned`, `/api/search` | Supporting resources |
 
 Error shape: `{ "ok": false, "error": "..." }`.
+
+#### Personal access tokens
+
+Create a token in the UI (`/api/tokens` while signed in). Use it on `/api/*` only:
+
+```bash
+curl -H "Authorization: Bearer clp_…" https://call-logging-app-six.vercel.app/api/dashboard/stats
+```
+
+- Tokens are stored hashed; the raw value is shown once at creation.
+- Scope `read` allows GET/HEAD. Scope `write` or `admin` is required for mutating methods.
+- Expired, revoked, or inactive-user tokens return `401` JSON.
+- Verified Bearer requests skip CSRF (integrations are not browser form posts).
+- `LastUsedAt` is updated at most once per minute.
 
 ---
 
@@ -138,7 +152,7 @@ app/
                 # saved_view, notification, api_token
   templates/    # shell UI + board + reports + admin
   static/       # CSS/JS design system + dark mode
-  utils/        # decorators, helpers (SLA, notifications, timeline), audit
+  utils/        # decorators, helpers, audit, token_auth
 config.py
 run.py
 tests/

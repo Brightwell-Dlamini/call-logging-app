@@ -4,7 +4,7 @@ Call Logging Application factory.
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -37,6 +37,9 @@ def create_app(config_name=None):
     app = Flask(__name__)
     app.config.from_object(config.get(config_name, config['default']))
     app.config.setdefault('WTF_CSRF_HEADERS', ['X-CSRFToken', 'X-CSRF-Token'])
+    # CSRF is applied manually after Bearer-token auth so verified API clients
+    # are not blocked by missing form tokens.
+    app.config['WTF_CSRF_CHECK_DEFAULT'] = False
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -71,6 +74,18 @@ def create_app(config_name=None):
     app.register_blueprint(api_extras_bp, url_prefix='/api')
     app.register_blueprint(board_bp)
     app.register_blueprint(import_bp)
+
+    @app.before_request
+    def _authenticate_api_token_and_csrf():
+        from app.utils.token_auth import authenticate_request
+        rejected = authenticate_request()
+        if rejected is not None:
+            return rejected
+        if getattr(g, 'api_token', None):
+            return None
+        if not app.config.get('WTF_CSRF_ENABLED', True):
+            return None
+        csrf.protect()
 
     @app.errorhandler(404)
     def not_found_error(error):
