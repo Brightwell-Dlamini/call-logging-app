@@ -14,32 +14,32 @@
         <a href="{{ url_for('board.kanban') }}" class="btn btn-secondary btn-sm">Board</a>
         {% endif %}
         <a href="{{ url_for('calls.new_call') }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Log call
+            <i class="fas fa-plus" aria-hidden="true"></i> Log call
         </a>
     </div>
 </div>
 
-<div class="focus-mode-banner" id="focusModeBanner">
-    <i class="fas fa-eye"></i>
+<div class="focus-mode-banner" id="focusModeBanner" role="status">
+    <i class="fas fa-eye" aria-hidden="true"></i>
     <div><strong>Focus mode is on</strong> — charts are hidden to reduce distraction.</div>
     <button type="button" class="btn btn-secondary btn-sm" id="exitFocusMode">Show charts</button>
 </div>
 
 {% if stats.overdue_followups %}
-<div class="crit-banner" style="border-left-color:#ef4444;">
-    <i class="fas fa-calendar-xmark"></i>
+<div class="crit-banner" style="border-left-color:#ef4444;" role="status">
+    <i class="fas fa-calendar-xmark" aria-hidden="true"></i>
     <div><strong>{{ stats.overdue_followups }} overdue follow-up{{ 's' if stats.overdue_followups != 1 else '' }}</strong>{% if stats.my_overdue %} · <strong>{{ stats.my_overdue }}</strong> assigned to you{% endif %} — callbacks past due.</div>
     <a href="{{ url_for('calls.list_calls', overdue=1) }}" class="btn btn-secondary btn-sm">View overdue</a>
 </div>
 {% elif stats.sla_breach %}
-<div class="crit-banner">
-    <i class="fas fa-clock"></i>
+<div class="crit-banner" role="status">
+    <i class="fas fa-clock" aria-hidden="true"></i>
     <div><strong>{{ stats.sla_breach }} SLA breach{{ 's' if stats.sla_breach != 1 else '' }}</strong>{% if stats.sla_warn %} · {{ stats.sla_warn }} at risk{% endif %} — prioritise ageing high/critical tickets.</div>
     <a href="{{ url_for('calls.list_calls', sort='priority') }}" class="btn btn-secondary btn-sm">Triage</a>
 </div>
 {% elif current_user.Role == 'Agent' %}
-<div class="crit-banner">
-    <i class="fas fa-inbox"></i>
+<div class="crit-banner" role="status">
+    <i class="fas fa-inbox" aria-hidden="true"></i>
     <div>
         <strong>{{ stats.my_open }}</strong> assigned to you
         {% if stats.unassigned %} · <strong>{{ stats.unassigned }}</strong> unassigned in the pool{% endif %}
@@ -47,8 +47,8 @@
     <a href="{{ url_for('board.my_queue') }}" class="btn btn-secondary btn-sm">Open my queue</a>
 </div>
 {% elif stats.open_calls %}
-<div class="crit-banner">
-    <i class="fas fa-headset"></i>
+<div class="crit-banner" role="status">
+    <i class="fas fa-headset" aria-hidden="true"></i>
     <div><strong>{{ stats.open_calls }} open</strong>{% if stats.unassigned %} · <strong>{{ stats.unassigned }}</strong> unassigned{% endif %}{% if stats.high_priority %} · <strong>{{ stats.high_priority }}</strong> high priority{% endif %}.</div>
     <a href="{{ url_for('calls.list_calls', status='Open') }}" class="btn btn-secondary btn-sm">Open inbox</a>
 </div>
@@ -57,36 +57,36 @@
 <div class="stat-grid">
     {% if current_user.Role == 'Agent' %}
     <a href="{{ url_for('board.my_queue') }}" class="stat-card" style="text-decoration:none;color:inherit;">
-        <div class="stat-icon indigo"><i class="fas fa-user-check"></i></div>
+        <div class="stat-icon indigo" aria-hidden="true"><i class="fas fa-user-check"></i></div>
         <div><div class="stat-label">My open</div><div class="stat-value">{{ stats.my_open }}</div></div>
     </a>
     <a href="{{ url_for('calls.list_calls', unassigned=1) }}" class="stat-card" style="text-decoration:none;color:inherit;">
-        <div class="stat-icon amber"><i class="fas fa-user-slash"></i></div>
+        <div class="stat-icon amber" aria-hidden="true"><i class="fas fa-user-slash"></i></div>
         <div><div class="stat-label">Unassigned pool</div><div class="stat-value">{{ stats.unassigned }}</div></div>
     </a>
     <a href="{{ url_for('calls.list_calls', overdue=1, assigned_to=current_user.UserID) }}" class="stat-card" style="text-decoration:none;color:inherit;">
-        <div class="stat-icon rose"><i class="fas fa-calendar-xmark"></i></div>
+        <div class="stat-icon rose" aria-hidden="true"><i class="fas fa-calendar-xmark"></i></div>
         <div><div class="stat-label">My overdue</div><div class="stat-value">{{ stats.my_overdue or 0 }}</div></div>
     </a>
     <div class="stat-card">
-        <div class="stat-icon green"><i class="fas fa-circle-check"></i></div>
+        <div class="stat-icon green" aria-hidden="true"><i class="fas fa-circle-check"></i></div>
         <div><div class="stat-label">Resolved today</div><div class="stat-value">{{ stats.resolved_today }}</div></div>
     </div>
     {% else %}
     <div class="stat-card">
-        <div class="stat-icon blue"><i class="fas fa-phone"></i></div>
+        <div class="stat-icon blue" aria-hidden="true"><i class="fas fa-phone"></i></div>
         <div><div class="stat-label">Total calls</div><div class="stat-value">{{ stats.total_calls }}</div></div>
     </div>
     <a href="{{ url_for('calls.list_calls', status='Open') }}" class="stat-card" style="text-decoration:none;color:inherit;">
-        <div class="stat-icon amber"><i class="fas fa-folder-open"></i></div>
+        <div class="stat-icon amber" aria-hidden="true"><i class="fas fa-folder-open"></i></div>
         <div><div class="stat-label">Open</div><div class="stat-value">{{ stats.open_calls }}</div></div>
     </a>
     <a href="{{ url_for('calls.list_calls', overdue=1) }}" class="stat-card" style="text-decoration:none;color:inherit;">
-        <div class="stat-icon rose"><i class="fas fa-calendar-xmark"></i></div>
+        <div class="stat-icon rose" aria-hidden="true"><i class="fas fa-calendar-xmark"></i></div>
         <div><div class="stat-label">Overdue follow-ups</div><div class="stat-value">{{ stats.overdue_followups or 0 }}</div></div>
     </a>
     <a href="{{ url_for('calls.list_calls', priority='High') }}" class="stat-card" style="text-decoration:none;color:inherit;">
-        <div class="stat-icon indigo"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="stat-icon indigo" aria-hidden="true"><i class="fas fa-triangle-exclamation"></i></div>
         <div><div class="stat-label">High priority</div><div class="stat-value">{{ stats.high_priority }}</div></div>
     </a>
     {% endif %}
@@ -94,27 +94,27 @@
 
 <div class="stat-grid stat-grid-6" style="margin-top:0.75rem;">
     <div class="stat-card">
-        <div class="stat-icon rose"><i class="fas fa-clock"></i></div>
+        <div class="stat-icon rose" aria-hidden="true"><i class="fas fa-clock"></i></div>
         <div><div class="stat-label">SLA breaches</div><div class="stat-value">{{ stats.sla_breach or 0 }}</div></div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon amber"><i class="fas fa-hourglass-half"></i></div>
+        <div class="stat-icon amber" aria-hidden="true"><i class="fas fa-hourglass-half"></i></div>
         <div><div class="stat-label">SLA at risk</div><div class="stat-value">{{ stats.sla_warn or 0 }}</div></div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon indigo"><i class="fas fa-user-slash"></i></div>
+        <div class="stat-icon indigo" aria-hidden="true"><i class="fas fa-user-slash"></i></div>
         <div><div class="stat-label">Unassigned</div><div class="stat-value">{{ stats.unassigned or 0 }}</div></div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon green"><i class="fas fa-star"></i></div>
+        <div class="stat-icon green" aria-hidden="true"><i class="fas fa-star"></i></div>
         <div><div class="stat-label">Avg satisfaction</div><div class="stat-value">{% if stats.avg_satisfaction is not none %}{{ stats.avg_satisfaction }}{% else %}—{% endif %}</div></div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon blue"><i class="fas fa-stopwatch"></i></div>
+        <div class="stat-icon blue" aria-hidden="true"><i class="fas fa-stopwatch"></i></div>
         <div><div class="stat-label">Avg handle (min)</div><div class="stat-value">{% if stats.avg_handle_mins is not none %}{{ stats.avg_handle_mins|int }}{% else %}—{% endif %}</div></div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon green"><i class="fas fa-circle-check"></i></div>
+        <div class="stat-icon green" aria-hidden="true"><i class="fas fa-circle-check"></i></div>
         <div><div class="stat-label">Resolved today</div><div class="stat-value">{{ stats.resolved_today or 0 }}</div></div>
     </div>
 </div>
@@ -123,16 +123,32 @@
     <div class="col-lg-8">
         <div class="row g-3">
             <div class="col-md-6 col-xl-3">
-                <div class="chart-panel"><div class="chart-title">By status</div><canvas id="statusChart" height="220"></canvas></div>
+                <div class="chart-panel">
+                    <div class="chart-title" id="status-chart-title">By status</div>
+                    <canvas id="statusChart" height="220" role="img" aria-labelledby="status-chart-title status-chart-fallback"></canvas>
+                    <p id="status-chart-fallback" class="visually-hidden">{% if stats.status_counts %}{% for k,v in stats.status_counts.items() %}{{ k }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No status data{% endif %}</p>
+                </div>
             </div>
             <div class="col-md-6 col-xl-3">
-                <div class="chart-panel"><div class="chart-title">By priority</div><canvas id="priorityChart" height="220"></canvas></div>
+                <div class="chart-panel">
+                    <div class="chart-title" id="priority-chart-title">By priority</div>
+                    <canvas id="priorityChart" height="220" role="img" aria-labelledby="priority-chart-title priority-chart-fallback"></canvas>
+                    <p id="priority-chart-fallback" class="visually-hidden">{% if stats.priority_counts %}{% for k,v in stats.priority_counts.items() %}{{ k }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No priority data{% endif %}</p>
+                </div>
             </div>
             <div class="col-md-6 col-xl-3">
-                <div class="chart-panel"><div class="chart-title">Last 7 days</div><canvas id="dailyChart" height="220"></canvas></div>
+                <div class="chart-panel">
+                    <div class="chart-title" id="daily-chart-title">Last 7 days</div>
+                    <canvas id="dailyChart" height="220" role="img" aria-labelledby="daily-chart-title daily-chart-fallback"></canvas>
+                    <p id="daily-chart-fallback" class="visually-hidden">{% if stats.calls_per_day %}{% for k,v in stats.calls_per_day.items() %}{{ k }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No daily volume data{% endif %}</p>
+                </div>
             </div>
             <div class="col-md-6 col-xl-3">
-                <div class="chart-panel"><div class="chart-title">By department</div><canvas id="deptChart" height="220"></canvas></div>
+                <div class="chart-panel">
+                    <div class="chart-title" id="dept-chart-title">By department</div>
+                    <canvas id="deptChart" height="220" role="img" aria-labelledby="dept-chart-title dept-chart-fallback"></canvas>
+                    <p id="dept-chart-fallback" class="visually-hidden">{% if stats.dept_counts %}{% for k,v in stats.dept_counts.items() %}{{ k }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No department data{% endif %}</p>
+                </div>
             </div>
         </div>
 
@@ -142,20 +158,21 @@
             <div class="table-responsive">
                 {% if stats.workload %}
                 <table class="table">
-                    <thead><tr><th>Agent</th><th>Open</th><th>Load</th></tr></thead>
+                    <caption class="visually-hidden">Open ticket load by agent</caption>
+                    <thead><tr><th scope="col">Agent</th><th scope="col">Open</th><th scope="col">Load</th></tr></thead>
                     <tbody>
                         {% set max_c = stats.workload|map(attribute='open_count')|max if stats.workload else 1 %}
                         {% for w in stats.workload[:8] %}
                         <tr>
                             <td class="fw-medium">{{ w.name }}</td>
                             <td>{{ w.open_count }}</td>
-                            <td style="min-width:140px"><div class="load-bar"><span style="width:{{ (w.open_count / (max_c or 1) * 100)|int }}%"></span></div></td>
+                            <td style="min-width:140px"><div class="load-bar" aria-hidden="true"><span style="width:{{ (w.open_count / (max_c or 1) * 100)|int }}%"></span></div></td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
                 {% else %}
-                <div class="empty-state py-4"><p class="mb-0">No active agents yet.</p></div>
+                <div class="empty-state py-4" role="status"><p class="mb-0">No active agents yet.</p></div>
                 {% endif %}
             </div>
         </div>
@@ -189,7 +206,7 @@
                     <div class="activity-time">{{ a.when.strftime('%H:%M') if a.when else '' }}</div>
                 </a>
                 {% else %}
-                <div class="empty-state py-4"><p class="mb-0">No activity yet. Re-run seed or act on a call.</p></div>
+                <div class="empty-state py-4" role="status"><p class="mb-0">No activity yet. Re-run seed or act on a call.</p></div>
                 {% endfor %}
             </div>
         </div>
@@ -200,7 +217,8 @@
     <div class="card-header"><span>Recent calls</span><a href="{{ url_for('calls.list_calls') }}" class="btn btn-ghost btn-sm">View all</a></div>
     <div class="table-responsive">
         <table class="table">
-            <thead><tr><th>ID</th><th>Caller</th><th>Status</th><th>Priority</th><th>SLA</th><th>Date</th><th></th></tr></thead>
+            <caption class="visually-hidden">Most recent logged calls</caption>
+            <thead><tr><th scope="col">ID</th><th scope="col">Caller</th><th scope="col">Status</th><th scope="col">Priority</th><th scope="col">SLA</th><th scope="col">Date</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                 {% for c in stats.recent_calls %}
                 <tr class="inbox-row {% if c.is_overdue %}is-overdue{% endif %}" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}">
@@ -211,11 +229,11 @@
                     <td><span class="sla-chip {{ c|sla_badge }}">{{ c|sla_badge }}</span></td>
                     <td>{{ c.DateLogged.strftime('%b %d · %H:%M') if c.DateLogged else '—' }}</td>
                     <td class="table-actions">
-                        <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}"><i class="fas fa-panel-right"></i></button>
+                        <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}" aria-label="Open call {{ c.CallID }} in drawer"><i class="fas fa-panel-right" aria-hidden="true"></i></button>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="7"><div class="empty-state"><p>No recent calls yet.</p></div></td></tr>
+                <tr><td colspan="7"><div class="empty-state" role="status"><p>No recent calls yet.</p></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -226,7 +244,6 @@
 {% block extra_js %}
 <script>
 (function () {
-  // Exit focus mode from dashboard banner
   var exitBtn = document.getElementById('exitFocusMode');
   if (exitBtn) {
     exitBtn.addEventListener('click', function () {
@@ -236,7 +253,6 @@
       var ft = document.getElementById('focusToggle');
       if (ft) ft.classList.remove('active');
       if (window.clToast) window.clToast('info', 'Focus mode off — charts visible');
-      // Charts may need a resize after becoming visible again
       setTimeout(function () {
         window.dispatchEvent(new Event('resize'));
       }, 50);

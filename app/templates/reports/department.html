@@ -8,17 +8,19 @@
     </div>
     <div class="page-actions">
         <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
-            <i class="fas fa-arrow-left"></i> Reports
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to reports
         </a>
+        <a href="{{ url_for('reports.export_excel') }}" class="btn btn-secondary btn-sm">Download Excel workbook</a>
     </div>
 </div>
 
 <div class="table-wrap" style="max-width:560px;">
     <table class="table">
+        <caption class="visually-hidden">Call volume by department</caption>
         <thead>
             <tr>
-                <th>Department</th>
-                <th style="text-align:right;">Calls</th>
+                <th scope="col">Department</th>
+                <th scope="col" style="text-align:right;">Calls</th>
             </tr>
         </thead>
         <tbody>
@@ -30,8 +32,8 @@
             {% else %}
             <tr>
                 <td colspan="2">
-                    <div class="empty-state">
-                        <div class="empty-icon"><i class="fas fa-building"></i></div>
+                    <div class="empty-state" role="status">
+                        <div class="empty-icon" aria-hidden="true"><i class="fas fa-building"></i></div>
                         <p>No data available.</p>
                     </div>
                 </td>

@@ -8,16 +8,16 @@
     </div>
     <div class="page-actions">
         <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
-            <i class="fas fa-arrow-left"></i> Reports
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to reports
         </a>
     </div>
 </div>
 
 <div class="filter-bar mb-4">
-    <form method="GET" class="row align-items-end">
+    <form method="GET" class="row align-items-end g-2" aria-label="Agent filter">
         <div class="col-md-4">
-            <label class="form-label">Select agent</label>
-            <select name="agent_id" class="form-select" onchange="this.form.submit()">
+            <label class="form-label" for="agent-id">Select agent</label>
+            <select id="agent-id" name="agent_id" class="form-select" onchange="this.form.submit()">
                 <option value="">— Choose —</option>
                 {% for a in agents %}
                 <option value="{{ a.UserID }}" {% if selected_agent and selected_agent.UserID == a.UserID %}selected{% endif %}>
@@ -26,12 +26,15 @@
                 {% endfor %}
             </select>
         </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">View agent metrics</button>
+        </div>
     </form>
 </div>
 
 {% if metrics and selected_agent %}
-<div class="cl-card mb-3">
-    <div class="cl-card-header">{{ selected_agent.FullName }}</div>
+<div class="cl-card mb-3" aria-labelledby="agent-metrics-heading">
+    <h2 class="cl-card-header h6 mb-0" id="agent-metrics-heading">{{ selected_agent.FullName }}</h2>
     <div class="cl-card-body">
         <div class="stat-grid" style="margin-bottom:0;grid-template-columns:repeat(5,1fr);">
             <div>
@@ -58,13 +61,13 @@
     </div>
 </div>
 {% elif selected_agent is none and request.args.get('agent_id') %}
-<div class="empty-state">
-    <div class="empty-icon"><i class="fas fa-user"></i></div>
+<div class="empty-state" role="status">
+    <div class="empty-icon" aria-hidden="true"><i class="fas fa-user"></i></div>
     <p>Agent not found.</p>
 </div>
 {% else %}
-<div class="empty-state">
-    <div class="empty-icon"><i class="fas fa-user-check"></i></div>
+<div class="empty-state" role="status">
+    <div class="empty-icon" aria-hidden="true"><i class="fas fa-user-check"></i></div>
     <p>Select an agent to view performance metrics.</p>
 </div>
 {% endif %}
