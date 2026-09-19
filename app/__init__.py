@@ -4,7 +4,7 @@ Call Logging Application factory.
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, g, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -72,6 +72,31 @@ def create_app(config_name=None):
     app.register_blueprint(board_bp)
     app.register_blueprint(import_bp)
 
+    @app.before_request
+    def _assign_request_id():
+        from app.utils.request_id import new_request_id
+        g.request_id = new_request_id()
+
+    @app.after_request
+    def _emit_request_id(response):
+        rid = getattr(g, 'request_id', None)
+        if rid:
+            response.headers['X-Request-ID'] = rid
+        path = request.path or ''
+        if (
+            not path.startswith('/static')
+            and path not in ('/favicon.ico',)
+            and not app.testing
+        ):
+            app.logger.info(
+                '%s %s %s request_id=%s',
+                request.method,
+                path,
+                response.status_code,
+                rid or '-',
+            )
+        return response
+
     @app.errorhandler(404)
     def not_found_error(error):
         return render_template('errors/404.html'), 404
@@ -116,7 +141,14 @@ def create_app(config_name=None):
 
     @app.route('/seed', methods=['POST', 'GET'])
     def seed_endpoint():
+        from app.utils.audit import log_audit
+
         if _is_production() and os.environ.get('ENABLE_SEED') != '1':
+            log_audit('ops.seed_denied', 'enable_seed_off', target_type='ops')
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
             return {
                 'status': 'disabled',
                 'message': 'Seed endpoint disabled. Set ENABLE_SEED=1 to allow.',
@@ -126,16 +158,29 @@ def create_app(config_name=None):
         if expected_token:
             provided = request.headers.get('X-Seed-Token') or request.args.get('token') or ''
             if provided != expected_token:
+                log_audit('ops.seed_denied', 'invalid_token', target_type='ops')
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
                 return {'status': 'forbidden', 'message': 'Invalid or missing seed token.'}, 403
 
         from app.utils.bootstrap import bootstrap_demo_data
         created = []
         try:
             created = bootstrap_demo_data(include_sample_calls=True)
+            log_audit(
+                'ops.seed',
+                f'created={created or []}',
+                target_type='ops',
+            )
             if created:
                 db.session.commit()
                 payload = {'status': 'ok', 'created': created}
-                if any(label in ('admin', 'agent1', 'manager1') for label in created):
+                if (
+                    not _is_production()
+                    and any(label in ('admin', 'agent1', 'manager1') for label in created)
+                ):
                     payload['logins'] = {
                         'admin': 'admin123',
                         'agent1': 'agent123',
@@ -143,6 +188,7 @@ def create_app(config_name=None):
                     }
                     payload['warning'] = 'Change demo passwords before exposing this instance.'
                 return payload, 200
+            db.session.commit()
             return {'status': 'ok', 'message': 'Already seeded'}, 200
         except Exception as e:
             db.session.rollback()

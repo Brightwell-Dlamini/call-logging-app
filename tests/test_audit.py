@@ -46,3 +46,31 @@ def test_audit_page_requires_admin(client):
     client.post('/login', data={'username': 'agent1', 'password': 'agent123'}, follow_redirects=True)
     r = client.get('/admin/activities')
     assert r.status_code in (302, 403)
+
+
+def test_health_returns_request_id(client):
+    r = client.get('/health', headers={'X-Request-ID': 'abc12345deadbeef'})
+    assert r.status_code == 200
+    assert r.headers.get('X-Request-ID') == 'abc12345deadbeef'
+
+
+def test_health_generates_request_id(client):
+    r = client.get('/health')
+    assert r.status_code == 200
+    rid = r.headers.get('X-Request-ID')
+    assert rid
+    assert len(rid) >= 8
+
+
+def test_report_export_writes_audit(auth_client, app):
+    r = auth_client.get('/reports/export/excel')
+    assert r.status_code == 200
+    with app.app_context():
+        assert SystemAudit.query.filter_by(Action='report.export_excel').count() >= 1
+
+
+def test_seed_writes_audit(client, app):
+    r = client.get('/seed')
+    assert r.status_code == 200
+    with app.app_context():
+        assert SystemAudit.query.filter_by(Action='ops.seed').count() >= 1

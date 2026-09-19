@@ -20,6 +20,7 @@ from reportlab.lib import colors
 from app import db
 from app.models import CallLog, User, Department
 from app.utils.decorators import login_required_active, manager_required
+from app.utils.audit import log_audit
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -219,6 +220,8 @@ def export_excel():
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
+    log_audit('report.export_excel', 'limit=2000', target_type='report')
+    db.session.commit()
     return send_file(
         buffer,
         as_attachment=True,
@@ -265,6 +268,8 @@ def export_pdf():
     elements.append(table)
     doc.build(elements)
     buffer.seek(0)
+    log_audit('report.export_pdf', f'total={total}', target_type='report')
+    db.session.commit()
     return send_file(
         buffer,
         as_attachment=True,
