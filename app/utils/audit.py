@@ -25,10 +25,18 @@ def log_audit(
     """Persist a system audit row. Caller is responsible for commit."""
     if user_id is None and has_request_context() and getattr(current_user, 'is_authenticated', False):
         user_id = getattr(current_user, 'UserID', None)
+    text = (details or '')[:4000] or None
+    if text is None:
+        rid = None
+        if has_request_context():
+            from flask import g
+            rid = getattr(g, 'request_id', None)
+        if rid:
+            text = f'request_id={rid}'
     event = SystemAudit(
         UserID=user_id,
         Action=str(action)[:80],
-        Details=(details or '')[:4000] or None,
+        Details=text,
         TargetType=target_type,
         TargetID=str(target_id)[:80] if target_id is not None else None,
         IpAddress=_client_ip(),
