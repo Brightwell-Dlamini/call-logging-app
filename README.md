@@ -33,6 +33,8 @@ Neon Postgres (pooler URL, NullPool on Vercel)
 
 Serverless note: connections use **NullPool** so each invocation does not hold idle Postgres connections.
 
+Every HTTP response includes `X-Request-ID` (honoured from a safe incoming header, otherwise generated) so logs and `/health` can be correlated.
+
 ---
 
 ## Features
@@ -117,6 +119,21 @@ python run.py
 Open http://127.0.0.1:5000
 
 New tables (`saved_views`, `notifications`, `api_tokens`, etc.) are created automatically via `db.create_all()` on startup.
+
+---
+
+## Docker
+
+Compose runs the Flask app with **Postgres 16** (not MySQL). Default credentials match `.env.example` comments and are for local use only.
+
+```bash
+docker compose up --build
+```
+
+App: http://127.0.0.1:8000  
+Health: `GET /health` (returns `request_id` and database status).
+
+Set `SECRET_KEY` in the environment before exposing the stack beyond localhost.
 
 ---
 
