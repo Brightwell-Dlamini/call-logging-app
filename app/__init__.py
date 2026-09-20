@@ -3,8 +3,9 @@ Call Logging Application factory.
 """
 import logging
 import os
+import uuid
 from logging.handlers import RotatingFileHandler
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, g, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -27,6 +28,13 @@ def _is_production():
         os.environ.get('FLASK_ENV') == 'production'
         or os.environ.get('VERCEL_ENV') == 'production'
     )
+
+
+def _incoming_request_id():
+    raw = (request.headers.get('X-Request-ID') or '').strip()
+    if raw and 8 <= len(raw) <= 64 and all(c.isalnum() or c in '-_' for c in raw):
+        return raw
+    return uuid.uuid4().hex
 
 
 def create_app(config_name=None):
@@ -72,6 +80,24 @@ def create_app(config_name=None):
     app.register_blueprint(board_bp)
     app.register_blueprint(import_bp)
 
+    @app.before_request
+    def attach_request_id():
+        g.request_id = _incoming_request_id()
+
+    @app.after_request
+    def apply_request_id(response):
+        rid = getattr(g, 'request_id', None) or uuid.uuid4().hex
+        response.headers['X-Request-ID'] = rid
+        if not app.testing:
+            app.logger.info(
+                'request method=%s path=%s status=%s request_id=%s',
+                request.method,
+                request.path,
+                response.status_code,
+                rid,
+            )
+        return response
+
     @app.errorhandler(404)
     def not_found_error(error):
         return render_template('errors/404.html'), 404
@@ -112,6 +138,7 @@ def create_app(config_name=None):
             'service': 'call-logging-app',
             'database': db_status,
             'backend': backend,
+            'request_id': getattr(g, 'request_id', None),
         }, code
 
     @app.route('/seed', methods=['POST', 'GET'])

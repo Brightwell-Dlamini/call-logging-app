@@ -1,30 +1,39 @@
-version: '3.8'
-
 services:
   web:
     build: .
     ports:
       - "8000:8000"
     environment:
-      - FLASK_ENV=production
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - DATABASE_URL=mysql+pymysql://calllog:calllogpass@db:3306/call_logging
+      FLASK_ENV: production
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL: postgresql://calllog:calllogpass@db:5432/call_logging
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
 
   db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: call_logging
-      MYSQL_USER: calllog
-      MYSQL_PASSWORD: calllogpass
+      POSTGRES_DB: call_logging
+      POSTGRES_USER: calllog
+      POSTGRES_PASSWORD: calllogpass
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "3306:3306"
+      - "5432:5432"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U calllog -d call_logging"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
-  mysql_data:
+  postgres_data:
