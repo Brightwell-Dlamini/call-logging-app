@@ -78,6 +78,8 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 
 Error shape: `{ "ok": false, "error": "..." }`.
 
+Create and update validate phone numbers (at least 7 digits), enum fields, ISO follow-up dates, and length caps (caller 120, reason 4000, notes/resolution 8000). Invalid values return HTTP 400 instead of being stored. Browser session POSTs still require a CSRF token (`X-CSRFToken` or form field); `/health` and `/seed` remain exempt. Write endpoints are rate-limited (create 30/min, update 60/min per IP).
+
 ---
 
 ## Demo credentials
@@ -138,7 +140,7 @@ app/
                 # saved_view, notification, api_token
   templates/    # shell UI + board + reports + admin
   static/       # CSS/JS design system + dark mode
-  utils/        # decorators, helpers (SLA, notifications, timeline), audit
+  utils/        # decorators, helpers (SLA, notifications, timeline), audit, validation
 config.py
 run.py
 tests/

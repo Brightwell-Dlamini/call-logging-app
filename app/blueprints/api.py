@@ -8,9 +8,14 @@ from sqlalchemy import or_
 from app import db
 from app.models import CallLog, User, Tag, CannedResponse, DispositionCode
 from app.utils.decorators import login_required_active, agent_required, manager_required
+from app import limiter
 from app.utils.helpers import (
     get_dashboard_stats, log_activity, get_recent_activity, sla_risk,
     ensure_contact, notify_assignment, notify_escalate, notify_watchers,
+)
+from app.utils.validation import (
+    MAX_CALLER, MAX_DEPT, MAX_NOTES, MAX_REASON, MAX_RESOLUTION,
+    clip_text, parse_iso_datetime, parse_optional_int, validate_phone,
 )
 
 api_bp = Blueprint('api', __name__)
@@ -21,7 +26,6 @@ VALID_CALL_TYPE = frozenset({'Incoming', 'Outgoing'})
 VALID_PRESENCE = frozenset({'Available', 'Busy', 'Away', 'Offline'})
 MAX_PAGE_SIZE = 100
 
-# Map legacy UI presence values to server enum
 PRESENCE_MAP = {
     'available': 'Available',
     'on_call': 'Busy',
@@ -272,42 +276,49 @@ def list_calls_api():
 @login_required
 @login_required_active
 @agent_required
+@limiter.limit('30 per minute')
 def create_call_api():
     data = request.get_json(silent=True) or {}
     required = ['caller_name', 'phone_number', 'reason_for_call', 'call_type']
     missing = [k for k in required if not data.get(k)]
     if missing:
         return api_error('Missing required fields', 400, missing=missing)
+    caller = clip_text(data.get('caller_name'), MAX_CALLER, required=True)
+    if not caller or len(caller) < 2:
+        return api_error('caller_name must be between 2 and 120 characters')
+    phone = validate_phone(data.get('phone_number'))
+    if not phone:
+        return api_error('Invalid phone_number')
+    reason = clip_text(data.get('reason_for_call'), MAX_REASON, required=True)
+    if not reason or len(reason) < 5:
+        return api_error('reason_for_call must be between 5 and 4000 characters')
     call_type = data.get('call_type', 'Incoming')
     priority = data.get('priority') or 'Medium'
     if call_type not in VALID_CALL_TYPE:
         return api_error('Invalid call_type', 400, allowed=sorted(VALID_CALL_TYPE))
     if priority not in VALID_PRIORITY:
         return api_error('Invalid priority', 400, allowed=sorted(VALID_PRIORITY))
-    assigned = data.get('assigned_to') or None
-    if assigned is not None:
-        try:
-            assigned = int(assigned)
-        except (TypeError, ValueError):
-            return api_error('assigned_to must be an integer user id')
+    assigned, err = parse_optional_int(data.get('assigned_to'), 'assigned_to')
+    if err:
+        return api_error(err)
 
-    follow_up = None
-    if data.get('follow_up_date'):
-        try:
-            follow_up = datetime.fromisoformat(str(data['follow_up_date']).replace('Z', '+00:00'))
-        except ValueError:
-            pass
+    follow_up, ferr = parse_iso_datetime(data.get('follow_up_date'))
+    if ferr:
+        return api_error('Invalid follow_up_date format')
+
+    notes = clip_text(data.get('notes'), MAX_NOTES)
+    dept = clip_text(data.get('department'), MAX_DEPT) if data.get('department') else None
 
     call = CallLog(
-        CallerName=str(data['caller_name']).strip()[:120],
-        PhoneNumber=str(data['phone_number']).strip()[:30],
-        Department=(str(data['department']).strip()[:50] if data.get('department') else None),
+        CallerName=caller,
+        PhoneNumber=phone,
+        Department=dept,
         CallType=call_type,
-        ReasonForCall=str(data['reason_for_call']).strip(),
+        ReasonForCall=reason,
         Priority=priority,
         Status='Open',
         AssignedTo=assigned,
-        Notes=data.get('notes'),
+        Notes=notes,
         FollowUpDate=follow_up,
     )
     db.session.add(call)
@@ -437,6 +448,7 @@ def get_call_api(call_id):
 @login_required
 @login_required_active
 @agent_required
+@limiter.limit('60 per minute')
 def update_call_api(call_id):
     c = CallLog.query.get(call_id)
     if c is None:
@@ -444,6 +456,10 @@ def update_call_api(call_id):
     data = request.get_json(silent=True) or {}
     if not data:
         return api_error('JSON body required')
+    if 'resolution' in data and data['resolution'] is not None:
+        data['resolution'] = clip_text(data['resolution'], MAX_RESOLUTION) or ''
+    if 'notes' in data and data['notes'] is not None:
+        data['notes'] = clip_text(data['notes'], MAX_NOTES) or ''
     if 'status' in data and data['status']:
         if data['status'] not in VALID_STATUS:
             return api_error('Invalid status', 400, allowed=sorted(VALID_STATUS))
@@ -459,12 +475,9 @@ def update_call_api(call_id):
     if 'notes' in data:
         c.Notes = data['notes']
     if 'assigned_to' in data:
-        assigned = data['assigned_to'] or None
-        if assigned is not None:
-            try:
-                assigned = int(assigned)
-            except (TypeError, ValueError):
-                return api_error('assigned_to must be an integer user id')
+        assigned, err = parse_optional_int(data['assigned_to'], 'assigned_to')
+        if err:
+            return api_error(err)
         prev_assigned = c.AssignedTo
         c.AssignedTo = assigned
         if assigned and assigned != prev_assigned:
@@ -478,14 +491,10 @@ def update_call_api(call_id):
                 return api_error('disposition_id must be an integer')
         c.DispositionID = did
     if 'follow_up_date' in data:
-        val = data['follow_up_date']
-        if not val:
-            c.FollowUpDate = None
-        else:
-            try:
-                c.FollowUpDate = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
-            except ValueError:
-                return api_error('Invalid follow_up_date format')
+        follow_up, ferr = parse_iso_datetime(data['follow_up_date'])
+        if ferr:
+            return api_error('Invalid follow_up_date format')
+        c.FollowUpDate = follow_up
     if 'tag_ids' in data or 'tags' in data:
         tag_ids = data.get('tag_ids') or data.get('tags') or []
         try:
@@ -521,7 +530,7 @@ def quick_action(call_id):
         c.Status = 'Resolved'
         res = (data.get('resolution') or '').strip()
         if res:
-            c.Resolution = res
+            c.Resolution = res[:8000]
         elif not c.Resolution:
             c.Resolution = f'Resolved by {current_user.FullName}'
         sat = data.get('satisfaction') or data.get('satisfaction_rating')
