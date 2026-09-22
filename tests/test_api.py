@@ -33,6 +33,20 @@ def test_api_create_rejects_bad_priority(auth_client):
     assert 'allowed' in data
 
 
+def test_api_create_rejects_bad_follow_up(auth_client):
+    r = auth_client.post('/api/calls', json={
+        'caller_name': 'Date',
+        'phone_number': '+27820008888',
+        'reason_for_call': 'follow up parse',
+        'call_type': 'Incoming',
+        'follow_up_date': 'not-a-date',
+    })
+    assert r.status_code == 400
+    data = r.get_json()
+    assert data['ok'] is False
+    assert 'follow_up' in data['error']
+
+
 def test_api_create_and_get(auth_client):
     r = auth_client.post('/api/calls', json={
         'caller_name': 'API Caller',
@@ -64,6 +78,45 @@ def test_api_get_missing_is_json(auth_client):
 def test_api_list_rejects_bad_status(auth_client):
     r = auth_client.get('/api/calls?status=Nope')
     assert r.status_code == 400
+    data = r.get_json()
+    assert data['ok'] is False
+    assert 'allowed' in data
+
+
+def test_api_list_envelope(auth_client):
+    r = auth_client.get('/api/calls?per_page=10')
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['ok'] is True
+    assert isinstance(data['items'], list)
+    assert data['page'] == 1
+    assert data['per_page'] == 10
+    assert 'total' in data
+    assert r.headers.get('X-Total-Count') == str(data['total'])
+
+
+def test_api_users_envelope(auth_client):
+    r = auth_client.get('/api/users')
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['ok'] is True
+    assert isinstance(data['items'], list)
+    assert any(u.get('username') == 'admin' for u in data['items'])
+
+
+def test_api_requires_auth_json(client):
+    r = client.get('/api/calls')
+    assert r.status_code == 401
+    data = r.get_json()
+    assert data['ok'] is False
+    assert 'Authentication' in data['error']
+
+
+def test_api_unknown_path_json(auth_client):
+    r = auth_client.get('/api/does-not-exist')
+    assert r.status_code == 404
+    data = r.get_json()
+    assert data['ok'] is False
 
 
 def test_api_quick_unknown_action(auth_client, app):
