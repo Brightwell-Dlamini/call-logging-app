@@ -89,6 +89,160 @@ def _page_args():
 
 
 def _parse_follow_up(raw):
+    """Parse ISO datetime; raise ValueError on malformed non-empty input."""
     if raw in (None, ''):
         return None
     return datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
+
+
+@api_bp.route('/dashboard/stats')
+@login_required
+@login_required_active
+def dashboard_stats():
+    stats = get_dashboard_stats(user=current_user)
+    return jsonify({
+        'ok': True,
+        'total_calls': stats['total_calls'],
+        'open_calls': stats['open_calls'],
+        'resolved_today': stats['resolved_today'],
+        'high_priority': stats['high_priority'],
+        'unassigned': stats['unassigned'],
+        'my_open': stats['my_open'],
+        'my_overdue': stats.get('my_overdue', 0),
+        'overdue_followups': stats.get('overdue_followups', 0),
+        'sla_breach': stats['sla_breach'],
+        'sla_warn': stats['sla_warn'],
+        'avg_satisfaction': stats.get('avg_satisfaction'),
+        'avg_handle_mins': stats.get('avg_handle_mins'),
+        'status_counts': stats['status_counts'],
+        'calls_per_day': stats['calls_per_day'],
+        'dept_counts': stats['dept_counts'],
+        'tag_counts': stats.get('tag_counts', []),
+        'workload': stats['workload'],
+        'unread_notifications': stats.get('unread_notifications', 0),
+    })
+
+
+@api_bp.route('/notifications')
+@login_required
+@login_required_active
+def notifications():
+    items = get_recent_activity(15)
+    out = []
+    for a in items:
+        out.append({
+            'id': a['id'],
+            'title': f"{a['user']} \u00b7 {a['action']}",
+            'body': f"#{a['call_id']} {a['caller']}".strip(),
+            'url': f"/calls/{a['call_id']}",
+            'when': a['when'].isoformat() if a['when'] else None,
+        })
+    return jsonify({'ok': True, 'items': out, 'count': len(out)})
+
+
+@api_bp.route('/presence', methods=['GET', 'POST'])
+@login_required
+@login_required_active
+def presence():
+    """Get or set current user desk presence."""
+    if request.method == 'GET':
+        return jsonify({
+            'ok': True,
+            'presence': getattr(current_user, 'Presence', 'Available') or 'Available',
+            'user_id': current_user.UserID,
+        })
+    data = request.get_json(silent=True) or {}
+    raw = (data.get('presence') or data.get('status') or '').strip()
+    mapped = PRESENCE_MAP.get(raw) or PRESENCE_MAP.get(raw.lower())
+    if not mapped or mapped not in VALID_PRESENCE:
+        return api_error('Invalid presence', 400, allowed=sorted(VALID_PRESENCE))
+    current_user.Presence = mapped
+    db.session.commit()
+    return jsonify(ok=True, presence=mapped)
+
+
+@api_bp.route('/dispositions')
+@login_required
+@login_required_active
+def list_dispositions_api():
+    items = DispositionCode.query.filter_by(IsActive=True).order_by(DispositionCode.Label).all()
+    return jsonify({
+        'ok': True,
+        'items': [
+            {'id': d.DispositionID, 'code': d.Code, 'label': d.Label}
+            for d in items
+        ],
+    })
+
+
+@api_bp.route('/search')
+@login_required
+@login_required_active
+def global_search():
+    q = (request.args.get('q') or '').strip()[:120]
+    if len(q) < 1:
+        return jsonify(ok=True, calls=[], users=[])
+    like = f'%{q}%'
+    filters = [
+        CallLog.CallerName.ilike(like),
+        CallLog.PhoneNumber.ilike(like),
+        CallLog.ReasonForCall.ilike(like),
+    ]
+    try:
+        filters.append(CallLog.CallID == int(q))
+    except ValueError:
+        pass
+    calls = (
+        CallLog.query.filter(or_(*filters))
+        .order_by(CallLog.DateLogged.desc())
+        .limit(8)
+        .all()
+    )
+    users = User.query.filter(
+        User.IsActive == True,
+        or_(User.FullName.ilike(like), User.Username.ilike(like))
+    ).limit(5).all()
+    return jsonify({
+        'ok': True,
+        'calls': [serialize_call(c) | {'url': f'/calls/{c.CallID}'} for c in calls],
+        'users': [
+            {'id': u.UserID, 'name': u.FullName, 'role': u.Role, 'presence': getattr(u, 'Presence', None)}
+            for u in users
+        ],
+    })
+
+
+@api_bp.route('/tags')
+@login_required
+@login_required_active
+def list_tags_api():
+    tags = Tag.query.filter_by(IsActive=True).order_by(Tag.Name).all()
+    return jsonify({
+        'ok': True,
+        'tags': [
+            {'id': t.TagID, 'name': t.Name, 'colour': t.Colour, 'description': t.Description}
+            for t in tags
+        ],
+    })
+
+
+@api_bp.route('/canned')
+@login_required
+@login_required_active
+def list_canned_api():
+    items = CannedResponse.query.filter_by(IsActive=True).order_by(CannedResponse.Category, CannedResponse.Title).all()
+    return jsonify({
+        'ok': True,
+        'items': [
+            {
+                'id': r.ResponseID,
+                'title': r.Title,
+                'body': r.Body,
+                'category': r.Category,
+            }
+            for r in items
+        ],
+    })
+
+
+from app.blueprints import api_calls  # noqa: E402,F401
