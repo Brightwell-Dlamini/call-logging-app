@@ -52,6 +52,12 @@ def create_app(config_name=None):
     login_manager.login_message_category = 'warning'
     login_manager.session_protection = 'strong'
 
+    @login_manager.unauthorized_handler
+    def _unauthorized():
+        if request.path.startswith('/api/'):
+            return {'ok': False, 'error': 'Authentication required'}, 401
+        return redirect(url_for('auth.login', next=request.url))
+
     from app.blueprints.auth import auth_bp
     from app.blueprints.dashboard import dashboard_bp
     from app.blueprints.calls import calls_bp
@@ -72,17 +78,32 @@ def create_app(config_name=None):
     app.register_blueprint(board_bp)
     app.register_blueprint(import_bp)
 
+    def _api_request():
+        return request.path.startswith('/api/')
+
     @app.errorhandler(404)
     def not_found_error(error):
+        if _api_request():
+            return {'ok': False, 'error': 'Not found'}, 404
         return render_template('errors/404.html'), 404
 
     @app.errorhandler(403)
     def forbidden_error(error):
+        if _api_request():
+            return {'ok': False, 'error': 'Forbidden'}, 403
         return render_template('errors/403.html'), 403
+
+    @app.errorhandler(429)
+    def ratelimit_error(error):
+        if _api_request():
+            return {'ok': False, 'error': 'Rate limit exceeded'}, 429
+        return {'ok': False, 'error': 'Rate limit exceeded'}, 429
 
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
+        if _api_request():
+            return {'ok': False, 'error': 'Internal server error'}, 500
         return render_template('errors/500.html'), 500
 
     @app.route('/favicon.ico')
