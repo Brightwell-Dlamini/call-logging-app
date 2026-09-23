@@ -135,7 +135,10 @@ def create_app(config_name=None):
             if created:
                 db.session.commit()
                 payload = {'status': 'ok', 'created': created}
-                if any(label in ('admin', 'agent1', 'manager1') for label in created):
+                # Never return demo passwords from production, even when ENABLE_SEED=1.
+                if not _is_production() and any(
+                    label in ('admin', 'agent1', 'manager1') for label in created
+                ):
                     payload['logins'] = {
                         'admin': 'admin123',
                         'agent1': 'agent123',
