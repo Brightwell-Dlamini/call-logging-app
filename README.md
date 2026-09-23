@@ -33,6 +33,8 @@ Neon Postgres (pooler URL, NullPool on Vercel)
 
 Serverless note: connections use **NullPool** so each invocation does not hold idle Postgres connections.
 
+See **[SECURITY.md](SECURITY.md)** for the production checklist.
+
 ---
 
 ## Features
@@ -100,8 +102,9 @@ See **[DEMO.md](DEMO.md)** for a 5-minute viva script.
 | `SECRET_KEY` | Yes | Strong random string |
 | `FLASK_ENV` | Recommended | `production` |
 | `ENABLE_SEED` | Optional | Set to `1` to allow `/seed` in production |
+| `SEED_TOKEN` | Optional | Required by `/seed` when set (`X-Seed-Token` or `?token=`) |
 
-**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users.
+**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Production seed responses do not include demo passwords. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users.
 
 ---
 
@@ -126,6 +129,8 @@ New tables (`saved_views`, `notifications`, `api_tokens`, etc.) are created auto
 pip install pytest
 pytest tests/ -v
 ```
+
+Coverage includes health, call create/bulk, API stats, audit events, CSV import, **login lockout**, **seed token / production gate**, and **report RBAC** (`tests/test_auth_rbac.py`).
 
 ---
 
