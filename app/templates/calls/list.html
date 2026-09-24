@@ -7,10 +7,10 @@
         <p class="page-subtitle">Inbox · triage like a pro</p>
     </div>
     <div class="page-actions">
-        <label class="auto-refresh-wrap" title="Reload inbox every 60s">
+        <label class="auto-refresh-wrap" title="Reload inbox every 60s" for="autoRefreshToggle">
             <input type="checkbox" id="autoRefreshToggle"> Auto
         </label>
-        <label class="chime-wrap" title="Soft chime when critical calls are on screen">
+        <label class="chime-wrap" title="Soft chime when critical calls are on screen" for="criticalChimeToggle">
             <input type="checkbox" id="criticalChimeToggle"> Chime
         </label>
         <div class="view-toggle" role="group" aria-label="View mode">
@@ -22,17 +22,17 @@
             <button type="button" data-density="comfortable" title="Comfortable">Cozy</button>
             <button type="button" data-density="compact" title="Compact">Dense</button>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" id="toggleFilters" title="Toggle filters">
-            <i class="fas fa-filter"></i>
+        <button type="button" class="btn btn-ghost btn-sm" id="toggleFilters" title="Toggle filters" aria-label="Toggle filters" aria-expanded="true" aria-controls="inboxFilterBar">
+            <i class="fas fa-filter" aria-hidden="true"></i>
         </button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btnSaveView" title="Save current filters as a view">
-            <i class="fas fa-bookmark"></i>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnSaveView" title="Save current filters as a view" aria-label="Save current filters as a view">
+            <i class="fas fa-bookmark" aria-hidden="true"></i>
         </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btnClaimNext" title="Claim next (N)">
             <i class="fas fa-hand"></i> Claim next
         </button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btnCopyFilters" title="Copy filter URL">
-            <i class="fas fa-link"></i>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnCopyFilters" title="Copy filter URL" aria-label="Copy filter URL">
+            <i class="fas fa-link" aria-hidden="true"></i>
         </button>
         <a href="{{ url_for('calls.export_csv', **request.args) }}" class="btn btn-secondary btn-sm">
             <i class="fas fa-download"></i> Export
@@ -56,7 +56,7 @@
 </div>
 {% endif %}
 
-<div class="preset-chips">
+<nav class="preset-chips" aria-label="Inbox presets">
     <a href="{{ url_for('calls.list_calls') }}">All</a>
     <a href="{{ url_for('calls.list_calls', assigned_to=current_user.UserID) }}">Mine</a>
     <a href="{{ url_for('calls.list_calls', unassigned=1) }}">Unassigned</a>
@@ -66,7 +66,7 @@
     <a href="{{ url_for('calls.list_calls', status='In Progress') }}">In progress</a>
     <a href="#" id="presetToday">Today</a>
     <a href="#" id="filterStarred">★ Starred</a>
-</div>
+</nav>
 
 <div class="saved-views" id="savedViews"><span class="sv-label">Views</span></div>
 
@@ -97,15 +97,15 @@
 </div>
 {% endif %}
 
-<div class="filter-bar">
-    <form method="GET" class="row align-items-end g-2">
+<div class="filter-bar" id="inboxFilterBar">
+    <form method="GET" class="row align-items-end g-2" role="search" aria-label="Filter calls">
         <div class="col-md-2">
-            <label class="form-label">Search</label>
+            <label class="form-label" for="inboxSearch">Search</label>
             <input type="text" name="search" value="{{ request.args.get('search', '') }}" class="form-control" placeholder="ID, name, phone…" id="inboxSearch">
         </div>
         <div class="col-md-1">
-            <label class="form-label">Priority</label>
-            <select name="priority" class="form-select">
+            <label class="form-label" for="filterPriority">Priority</label>
+            <select name="priority" class="form-select" id="filterPriority">
                 <option value="">All</option>
                 {% for p in ['Low','Medium','High','Critical'] %}
                 <option value="{{ p }}" {% if request.args.get('priority') == p %}selected{% endif %}>{{ p }}</option>
@@ -113,8 +113,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <label class="form-label">Department</label>
-            <select name="department" class="form-select">
+            <label class="form-label" for="filterDepartment">Department</label>
+            <select name="department" class="form-select" id="filterDepartment">
                 <option value="">All</option>
                 {% for d in departments %}
                 <option value="{{ d.DepartmentName }}" {% if request.args.get('department') == d.DepartmentName %}selected{% endif %}>{{ d.DepartmentName }}</option>
@@ -122,8 +122,8 @@
             </select>
         </div>
         <div class="col-md-1">
-            <label class="form-label">Tag</label>
-            <select name="tag" class="form-select">
+            <label class="form-label" for="filterTag">Tag</label>
+            <select name="tag" class="form-select" id="filterTag">
                 <option value="">All</option>
                 {% for t in tags %}
                 <option value="{{ t.TagID }}" {% if request.args.get('tag')|string == t.TagID|string %}selected{% endif %}>{{ t.Name }}</option>
@@ -131,19 +131,19 @@
             </select>
         </div>
         <div class="col-md-1">
-            <label class="form-label">From</label>
+            <label class="form-label" for="dateFrom">From</label>
             <input type="date" name="date_from" value="{{ request.args.get('date_from', '') }}" class="form-control" id="dateFrom">
         </div>
         <div class="col-md-1">
-            <label class="form-label">To</label>
+            <label class="form-label" for="dateTo">To</label>
             <input type="date" name="date_to" value="{{ request.args.get('date_to', '') }}" class="form-control" id="dateTo">
         </div>
         <input type="hidden" name="status" value="{{ request.args.get('status', '') }}">
         {% if request.args.get('unassigned') %}<input type="hidden" name="unassigned" value="1">{% endif %}
         {% if request.args.get('overdue') %}<input type="hidden" name="overdue" value="1">{% endif %}
         <div class="col-md-1">
-            <label class="form-label">Sort</label>
-            <select name="sort" class="form-select">
+            <label class="form-label" for="filterSort">Sort</label>
+            <select name="sort" class="form-select" id="filterSort">
                 <option value="date_desc" {% if request.args.get('sort', 'date_desc') == 'date_desc' %}selected{% endif %}>Newest</option>
                 <option value="priority" {% if request.args.get('sort') == 'priority' %}selected{% endif %}>Priority</option>
                 <option value="status" {% if request.args.get('sort') == 'status' %}selected{% endif %}>Status</option>
@@ -151,8 +151,8 @@
             </select>
         </div>
         <div class="col-md-1">
-            <label class="form-label">Page</label>
-            <select name="per_page" class="form-select">
+            <label class="form-label" for="filterPerPage">Page size</label>
+            <select name="per_page" class="form-select" id="filterPerPage">
                 {% for n in [10,25,50] %}
                 <option value="{{ n }}" {% if request.args.get('per_page', '25')|int == n %}selected{% endif %}>{{ n }}</option>
                 {% endfor %}
@@ -171,7 +171,7 @@
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="pending">Pending</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="resolve">Resolve</button>
     <button type="button" class="btn btn-secondary btn-sm" data-bulk-action="escalate">Escalate</button>
-    <select id="bulkAssignSelect" class="form-select bulk-assign-select" title="Assign selected to agent">
+    <select id="bulkAssignSelect" class="form-select bulk-assign-select" title="Assign selected to agent" aria-label="Assign selected calls">
         <option value="">Assign to…</option>
     </select>
     <button type="button" class="btn btn-ghost btn-sm" id="bulkClear">Clear</button>
@@ -184,18 +184,19 @@
 <div class="table-wrap inbox-table">
     <div class="table-responsive">
         <table class="table table-dense">
+            <caption class="visually-hidden-a11y">Call inbox</caption>
             <thead>
                 <tr>
-                    <th style="width:36px"><input type="checkbox" class="row-check" id="checkAll" title="Select all"></th>
-                    <th style="width:72px">ID</th>
-                    <th>Caller</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                    <th>SLA</th>
-                    <th>Tags</th>
-                    <th>Assigned</th>
-                    <th>Logged</th>
-                    <th style="width:40px"></th>
+                    <th scope="col" style="width:36px"><input type="checkbox" class="row-check" id="checkAll" title="Select all" aria-label="Select all calls on this page"></th>
+                    <th scope="col" style="width:72px">ID</th>
+                    <th scope="col">Caller</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">SLA</th>
+                    <th scope="col">Tags</th>
+                    <th scope="col">Assigned</th>
+                    <th scope="col">Logged</th>
+                    <th scope="col" style="width:40px"><span class="visually-hidden-a11y">Preview</span></th>
                 </tr>
             </thead>
             <tbody>
@@ -206,7 +207,7 @@
                     data-status="{{ c.Status }}"
                     data-priority="{{ c.Priority }}" tabindex="0">
                     <td onclick="event.stopPropagation()">
-                        <input type="checkbox" class="row-check row-select" value="{{ c.CallID }}">
+                        <input type="checkbox" class="row-check row-select" value="{{ c.CallID }}" aria-label="Select call #{{ c.CallID }}">
                     </td>
                     <td>
                         <span class="d-inline-flex align-items-center gap-2">
@@ -243,8 +244,8 @@
                     <td>{{ c.assignee.FullName.split()[0] if c.assignee else '—' }}</td>
                     <td class="rel-time" data-rel-time="{{ c.DateLogged.isoformat() if c.DateLogged else '' }}">{{ c.DateLogged.strftime('%b %d') if c.DateLogged else '' }}</td>
                     <td class="table-actions" onclick="event.stopPropagation()">
-                        <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}" title="Preview">
-                            <i class="fas fa-panel-right"></i>
+                        <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-open="{{ url_for('calls.detail', call_id=c.CallID, partial=1) }}" title="Preview" aria-label="Preview call #{{ c.CallID }}">
+                            <i class="fas fa-panel-right" aria-hidden="true"></i>
                         </button>
                     </td>
                 </tr>
@@ -264,7 +265,7 @@
     </div>
     {% if pagination.pages > 1 %}
     <div class="card-footer d-flex justify-content-center">
-        <nav>
+        <nav aria-label="Inbox pages">
             <ul class="pagination pagination-sm mb-0">
                 <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
                     <a class="page-link" href="{{ url_for('calls.list_calls', page=pagination.prev_num, **request.args) }}">Prev</a>
