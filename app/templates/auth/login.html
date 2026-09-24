@@ -5,33 +5,33 @@
     <div class="auth-visual">
         <div class="auth-visual-inner">
             <div class="auth-logo">
-                <span class="brand-mark"><i class="fas fa-phone-volume"></i></span>
+                <span class="brand-mark" aria-hidden="true"><i class="fas fa-phone-volume"></i></span>
                 CallLog Pro
             </div>
             <h2 class="auth-visual-title">Every call,<br>accounted for.</h2>
             <p class="auth-visual-copy">Log, triage, and resolve customer conversations in one calm workspace built for support teams.</p>
             <ul class="auth-bullets">
-                <li><i class="fas fa-check"></i> Role-based access for agents &amp; managers</li>
-                <li><i class="fas fa-check"></i> Priority inbox with live activity</li>
-                <li><i class="fas fa-check"></i> Reports you can act on</li>
+                <li><i class="fas fa-check" aria-hidden="true"></i> Role-based access for agents &amp; managers</li>
+                <li><i class="fas fa-check" aria-hidden="true"></i> Priority inbox with live activity</li>
+                <li><i class="fas fa-check" aria-hidden="true"></i> Reports you can act on</li>
             </ul>
         </div>
     </div>
     <div class="auth-form-side">
         <div class="auth-form-card">
-            <h1>Sign in</h1>
-            <p class="auth-form-sub">Welcome back. Enter your credentials to continue.</p>
-            <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+            <h1 id="login-heading">Sign in</h1>
+            <p class="auth-form-sub" id="login-sub">Welcome back. Enter your credentials to continue.</p>
+            <form method="POST" action="{{ url_for('auth.login') }}" novalidate aria-labelledby="login-heading" aria-describedby="login-sub">
                 {{ form.hidden_tag() }}
                 <div class="mb-3">
                     {{ form.username.label(class="form-label") }}
-                    {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Username", autocomplete="username", autofocus=true) }}
-                    {% for e in form.username.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Username", autocomplete="username", autofocus=true, required=true, **{"aria-required": "true", "aria-invalid": "true" if form.username.errors else "false", "aria-describedby": "username-error" if form.username.errors else none}) }}
+                    {% for e in form.username.errors %}<div class="invalid-feedback" id="username-error">{{ e }}</div>{% endfor %}
                 </div>
                 <div class="mb-3">
                     {{ form.password.label(class="form-label") }}
-                    {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Password", autocomplete="current-password") }}
-                    {% for e in form.password.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Password", autocomplete="current-password", required=true, **{"aria-required": "true", "aria-invalid": "true" if form.password.errors else "false", "aria-describedby": "password-error" if form.password.errors else none}) }}
+                    {% for e in form.password.errors %}<div class="invalid-feedback" id="password-error">{{ e }}</div>{% endfor %}
                 </div>
                 <div class="mb-4 form-check">
                     {{ form.remember_me(class="form-check-input") }}
