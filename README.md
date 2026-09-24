@@ -51,6 +51,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - Reports: daily, monthly, agent, department · Excel & PDF
 - **Audit trail** – call changes + system events
 - **Dark mode** – system preference + manual toggle
+- **Accessibility** – skip link, labelled login fields, inbox filter `for`/`id` pairing, table caption, reduced-motion CSS
 
 ### New / Enhanced
 - **Saved Views** – pin and reuse filter combinations (status, tags, department, overdue, etc.)
@@ -126,6 +127,8 @@ New tables (`saved_views`, `notifications`, `api_tokens`, etc.) are created auto
 pip install pytest
 pytest tests/ -v
 ```
+
+`tests/test_a11y.py` checks the login skip link and labelled inbox filters.
 
 ---
 
