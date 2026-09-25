@@ -3,8 +3,9 @@ Call Logging Application factory.
 """
 import logging
 import os
+import uuid
 from logging.handlers import RotatingFileHandler
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, g, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -20,6 +21,13 @@ migrate = Migrate()
 cache = Cache()
 limiter = Limiter(key_func=get_remote_address)
 csrf = CSRFProtect()
+
+_SECURITY_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'SAMEORIGIN',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+}
 
 
 def _is_production():
@@ -72,6 +80,19 @@ def create_app(config_name=None):
     app.register_blueprint(board_bp)
     app.register_blueprint(import_bp)
 
+    @app.before_request
+    def _assign_request_id():
+        incoming = (request.headers.get('X-Request-ID') or '').strip()
+        g.request_id = incoming[:64] if incoming else uuid.uuid4().hex
+
+    @app.after_request
+    def _apply_security_and_request_id(response):
+        request_id = getattr(g, 'request_id', None) or uuid.uuid4().hex
+        response.headers['X-Request-ID'] = request_id
+        for name, value in _SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
+
     @app.errorhandler(404)
     def not_found_error(error):
         return render_template('errors/404.html'), 404
@@ -83,6 +104,7 @@ def create_app(config_name=None):
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
+        app.logger.error('internal error request_id=%s', getattr(g, 'request_id', '-'))
         return render_template('errors/500.html'), 500
 
     @app.route('/favicon.ico')
@@ -112,6 +134,7 @@ def create_app(config_name=None):
             'service': 'call-logging-app',
             'database': db_status,
             'backend': backend,
+            'request_id': getattr(g, 'request_id', None),
         }, code
 
     @app.route('/seed', methods=['POST', 'GET'])
@@ -136,16 +159,24 @@ def create_app(config_name=None):
                 db.session.commit()
                 payload = {'status': 'ok', 'created': created}
                 if any(label in ('admin', 'agent1', 'manager1') for label in created):
-                    payload['logins'] = {
-                        'admin': 'admin123',
-                        'agent1': 'agent123',
-                        'manager1': 'manager123',
-                    }
-                    payload['warning'] = 'Change demo passwords before exposing this instance.'
+                    payload['warning'] = (
+                        'Demo accounts created. Use documented demo credentials '
+                        'locally only and change them before exposing this instance.'
+                    )
+                    app.logger.info(
+                        'seed created demo users request_id=%s labels=%s',
+                        getattr(g, 'request_id', '-'),
+                        ','.join(created),
+                    )
                 return payload, 200
             return {'status': 'ok', 'message': 'Already seeded'}, 200
         except Exception as e:
             db.session.rollback()
+            app.logger.warning(
+                'seed failed request_id=%s error=%s',
+                getattr(g, 'request_id', '-'),
+                type(e).__name__,
+            )
             return {'status': 'error', 'message': type(e).__name__}, 500
 
     csrf.exempt(health)

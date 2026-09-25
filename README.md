@@ -15,7 +15,7 @@ Browser (SPA-like UI)
     v
 Vercel Serverless (Python / run.py entrypoint)
     |  Flask application factory (app/__init__.py)
-    |  CSRF · Login · Rate limit · RBAC decorators
+    |  CSRF · Login · Rate limit · RBAC decorators · request IDs
     v
 Neon Postgres (pooler URL, NullPool on Vercel)
     tables: users, call_log, call_activity, system_audit, departments,
@@ -33,6 +33,8 @@ Neon Postgres (pooler URL, NullPool on Vercel)
 
 Serverless note: connections use **NullPool** so each invocation does not hold idle Postgres connections.
 
+See **[SECURITY.md](SECURITY.md)** for controls, production checklist, and how to report issues.
+
 ---
 
 ## Features
@@ -48,8 +50,8 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - Agent workload view
 - **Configurable SLA** thresholds by priority (`ok` / `warn` / `breach`)
 - Dashboard charts (status, 7-day volume, department, tag distribution, overdue)
-- Reports: daily, monthly, agent, department · Excel & PDF
-- **Audit trail** – call changes + system events
+- Reports: daily, monthly, agent, department · Excel & PDF (exports are audited)
+- **Audit trail** – call changes + system events (includes request IDs when available)
 - **Dark mode** – system preference + manual toggle
 
 ### New / Enhanced
@@ -59,6 +61,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - **Personal API Tokens** – long-lived tokens (`clp_…`) for external integrations (read/write scopes)
 - Improved SLA engine with per-priority warn/breach hours
 - Contact auto-creation on call logging
+- **Request IDs** – `X-Request-ID` is accepted and always returned; `/health` echoes it
 
 ### REST API (session or future token)
 | Method | Path | Notes |
@@ -100,8 +103,9 @@ See **[DEMO.md](DEMO.md)** for a 5-minute viva script.
 | `SECRET_KEY` | Yes | Strong random string |
 | `FLASK_ENV` | Recommended | `production` |
 | `ENABLE_SEED` | Optional | Set to `1` to allow `/seed` in production |
+| `SEED_TOKEN` | Optional | Required by `/seed` when set |
 
-**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users.
+**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Seed JSON does not include demo passwords. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users.
 
 ---
 
