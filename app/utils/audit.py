@@ -1,6 +1,6 @@
 """Helpers for writing system audit events."""
 from typing import Optional
-from flask import has_request_context, request
+from flask import g, has_request_context, request
 from flask_login import current_user
 from app import db
 from app.models.audit import SystemAudit
@@ -15,6 +15,12 @@ def _client_ip() -> Optional[str]:
     return (request.remote_addr or '')[:64] or None
 
 
+def _request_id() -> Optional[str]:
+    if not has_request_context():
+        return None
+    return getattr(g, 'request_id', None)
+
+
 def log_audit(
     action,
     details=None,
@@ -25,10 +31,14 @@ def log_audit(
     """Persist a system audit row. Caller is responsible for commit."""
     if user_id is None and has_request_context() and getattr(current_user, 'is_authenticated', False):
         user_id = getattr(current_user, 'UserID', None)
+    text = details or ''
+    rid = _request_id()
+    if rid and 'request_id=' not in text:
+        text = f'{text} request_id={rid}'.strip() if text else f'request_id={rid}'
     event = SystemAudit(
         UserID=user_id,
         Action=str(action)[:80],
-        Details=(details or '')[:4000] or None,
+        Details=text[:4000] or None,
         TargetType=target_type,
         TargetID=str(target_id)[:80] if target_id is not None else None,
         IpAddress=_client_ip(),
