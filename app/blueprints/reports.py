@@ -10,7 +10,7 @@ from flask import (
     send_file
 )
 from flask_login import login_required, current_user
-from sqlalchemy import func
+from sqlalchemy import func, case
 from sqlalchemy.orm import joinedload, load_only
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import letter
@@ -179,7 +179,7 @@ def agent_performance():
                 db.session.query(
                     func.count(CallLog.CallID),
                     func.sum(
-                        func.case(
+                        case(
                             (CallLog.Status.in_(['Resolved', 'Closed']), 1),
                             else_=0,
                         )
