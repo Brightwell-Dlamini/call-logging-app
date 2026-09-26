@@ -18,6 +18,10 @@ class CallLog(db.Model):
         db.Index('ix_call_log_assigned_status', 'AssignedTo', 'Status'),
         db.Index('ix_call_log_dept_status', 'Department', 'Status'),
         db.Index('ix_call_log_followup', 'FollowUpDate'),
+        db.Index('ix_call_log_lastupdated', 'LastUpdated'),
+        db.Index('ix_call_log_type_datelogged', 'CallType', 'DateLogged'),
+        db.Index('ix_call_log_priority_status', 'Priority', 'Status'),
+        db.Index('ix_call_log_status_lastupdated', 'Status', 'LastUpdated'),
     )
 
     CallID = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -119,6 +123,7 @@ class CallActivity(db.Model):
     __tablename__ = 'call_activity'
     __table_args__ = (
         db.Index('ix_call_activity_activitydate', 'ActivityDate'),
+        db.Index('ix_call_activity_call_date', 'CallID', 'ActivityDate'),
     )
 
     ActivityID = db.Column(db.Integer, primary_key=True, autoincrement=True)
