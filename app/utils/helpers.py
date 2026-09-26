@@ -2,7 +2,8 @@
 Helper utilities for activity logging, stats, SLA, notifications, and common operations.
 """
 from datetime import datetime, timedelta, date
-from sqlalchemy import func, or_, case
+from sqlalchemy import func, or_, and_, case
+from sqlalchemy.orm import joinedload
 from app import db
 from app.models import CallLog, CallActivity, User, Tag, Notification, Contact
 
@@ -16,6 +17,9 @@ SLA_THRESHOLDS = {
     'Medium':   {'warn': 24, 'breach': 48},
     'Low':      {'warn': 48, 'breach': 72},
 }
+
+OPEN_STATUSES = ('Open', 'In Progress', 'Pending')
+RESOLVED_STATUSES = ('Resolved', 'Closed')
 
 
 def _str_key_counts(rows):
@@ -144,7 +148,7 @@ def age_hours(dt):
 
 def sla_risk(call):
     """Return 'ok' | 'warn' | 'breach' based on priority and age."""
-    if call.Status in ('Resolved', 'Closed'):
+    if call.Status in RESOLVED_STATUSES:
         return 'ok'
     hours = age_hours(call.DateLogged) or 0
     thresholds = SLA_THRESHOLDS.get(call.Priority) or SLA_THRESHOLDS['Medium']
@@ -157,16 +161,49 @@ def sla_risk(call):
 
 def sla_hours_remaining(call):
     """Approximate hours until breach (negative if already breached)."""
-    if call.Status in ('Resolved', 'Closed'):
+    if call.Status in RESOLVED_STATUSES:
         return None
     hours = age_hours(call.DateLogged) or 0
     thresholds = SLA_THRESHOLDS.get(call.Priority) or SLA_THRESHOLDS['Medium']
     return round(thresholds['breach'] - hours, 1)
 
 
+def _sla_age_clauses(now, bucket):
+    """Build portable DateLogged predicates for warn or breach buckets."""
+    clauses = []
+    for priority, thresholds in SLA_THRESHOLDS.items():
+        warn_cut = now - timedelta(hours=thresholds['warn'])
+        breach_cut = now - timedelta(hours=thresholds['breach'])
+        if bucket == 'breach':
+            clauses.append(and_(
+                CallLog.Priority == priority,
+                CallLog.DateLogged <= breach_cut,
+            ))
+        elif bucket == 'warn':
+            clauses.append(and_(
+                CallLog.Priority == priority,
+                CallLog.DateLogged <= warn_cut,
+                CallLog.DateLogged > breach_cut,
+            ))
+    return or_(*clauses) if clauses else False
+
+
+def count_open_sla(bucket, now=None):
+    """Count open calls in an SLA bucket without loading rows."""
+    now = now or datetime.utcnow()
+    return (
+        CallLog.query.filter(
+            CallLog.Status.in_(OPEN_STATUSES),
+            _sla_age_clauses(now, bucket),
+        )
+        .count()
+    )
+
+
 def get_recent_activity(limit=12):
     rows = (
         CallActivity.query
+        .options(joinedload(CallActivity.user), joinedload(CallActivity.call))
         .order_by(CallActivity.ActivityDate.desc())
         .limit(limit)
         .all()
@@ -247,34 +284,31 @@ def get_dashboard_stats(user=None):
 
     total_calls = CallLog.query.count()
     open_calls = CallLog.query.filter(
-        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        CallLog.Status.in_(OPEN_STATUSES)
     ).count()
 
     resolved_ts = func.coalesce(CallLog.LastUpdated, CallLog.DateLogged)
     resolved_today = CallLog.query.filter(
-        CallLog.Status.in_(['Resolved', 'Closed']),
+        CallLog.Status.in_(RESOLVED_STATUSES),
         resolved_ts >= today_start,
     ).count()
 
     high_priority = CallLog.query.filter(
         CallLog.Priority.in_(['High', 'Critical']),
-        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        CallLog.Status.in_(OPEN_STATUSES)
     ).count()
     unassigned = CallLog.query.filter(
         CallLog.AssignedTo.is_(None),
-        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        CallLog.Status.in_(OPEN_STATUSES)
     ).count()
 
-    open_q = CallLog.query.filter(
-        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
-    ).all()
-    sla_breach = sum(1 for c in open_q if sla_risk(c) == 'breach')
-    sla_warn = sum(1 for c in open_q if sla_risk(c) == 'warn')
+    sla_breach = count_open_sla('breach', now=now)
+    sla_warn = count_open_sla('warn', now=now)
 
     overdue_followups = CallLog.query.filter(
         CallLog.FollowUpDate.isnot(None),
         CallLog.FollowUpDate < now,
-        CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+        CallLog.Status.in_(OPEN_STATUSES)
     ).count()
 
     avg_sat = db.session.query(func.avg(CallLog.SatisfactionRating)).filter(
@@ -293,13 +327,13 @@ def get_dashboard_stats(user=None):
     if user is not None and getattr(user, 'UserID', None):
         my_open = CallLog.query.filter(
             CallLog.AssignedTo == user.UserID,
-            CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+            CallLog.Status.in_(OPEN_STATUSES)
         ).count()
         my_overdue = CallLog.query.filter(
             CallLog.AssignedTo == user.UserID,
             CallLog.FollowUpDate.isnot(None),
             CallLog.FollowUpDate < now,
-            CallLog.Status.in_(['Open', 'In Progress', 'Pending'])
+            CallLog.Status.in_(OPEN_STATUSES)
         ).count()
         try:
             unread_notifications = Notification.query.filter_by(
@@ -379,7 +413,7 @@ def get_dashboard_stats(user=None):
         .outerjoin(
             CallLog,
             (CallLog.AssignedTo == User.UserID) &
-            (CallLog.Status.in_(['Open', 'In Progress', 'Pending']))
+            (CallLog.Status.in_(OPEN_STATUSES))
         )
         .filter(User.IsActive == True, User.Role.in_(['Agent', 'Manager', 'Admin']))
         .group_by(User.UserID, User.FullName)
@@ -391,7 +425,13 @@ def get_dashboard_stats(user=None):
         for uid, name, cnt in workload_rows
     ]
 
-    recent_calls = CallLog.query.order_by(CallLog.DateLogged.desc()).limit(8).all()
+    recent_calls = (
+        CallLog.query
+        .options(joinedload(CallLog.assignee))
+        .order_by(CallLog.DateLogged.desc())
+        .limit(8)
+        .all()
+    )
 
     return {
         'total_calls': total_calls,
