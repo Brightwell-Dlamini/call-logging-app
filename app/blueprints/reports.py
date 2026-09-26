@@ -11,7 +11,7 @@ from flask import (
 )
 from flask_login import login_required, current_user
 from sqlalchemy import func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, load_only
 from openpyxl import Workbook
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -20,8 +20,20 @@ from reportlab.lib import colors
 from app import db
 from app.models import CallLog, User, Department
 from app.utils.decorators import login_required_active, manager_required
+from app.utils.helpers import OPEN_STATUSES
 
 reports_bp = Blueprint('reports', __name__)
+
+EXPORT_COLUMNS = (
+    CallLog.CallID,
+    CallLog.CallerName,
+    CallLog.PhoneNumber,
+    CallLog.Department,
+    CallLog.CallType,
+    CallLog.Priority,
+    CallLog.Status,
+    CallLog.DateLogged,
+)
 
 
 def month_bounds(year: int, month: int):
@@ -29,6 +41,24 @@ def month_bounds(year: int, month: int):
     start = datetime(year, month, 1)
     last_day = monthrange(year, month)[1]
     end = datetime(year, month, last_day) + timedelta(days=1)
+    return start, end
+
+
+def parse_export_range():
+    """Optional ?from=YYYY-MM-DD&to=YYYY-MM-DD filter for exports."""
+    start_raw = (request.args.get('from') or '').strip()
+    end_raw = (request.args.get('to') or '').strip()
+    start = end = None
+    if start_raw:
+        try:
+            start = datetime.strptime(start_raw, '%Y-%m-%d')
+        except ValueError:
+            start = None
+    if end_raw:
+        try:
+            end = datetime.strptime(end_raw, '%Y-%m-%d') + timedelta(days=1)
+        except ValueError:
+            end = None
     return start, end
 
 
@@ -70,7 +100,10 @@ def daily():
 
     day_end = day + timedelta(days=1)
     calls = (
-        CallLog.query.options(joinedload(CallLog.assignee))
+        CallLog.query.options(
+            load_only(*EXPORT_COLUMNS, CallLog.AssignedTo, CallLog.ReasonForCall),
+            joinedload(CallLog.assignee).load_only(User.UserID, User.FullName),
+        )
         .filter(
             CallLog.DateLogged >= day,
             CallLog.DateLogged < day_end
@@ -130,7 +163,7 @@ def monthly():
 @login_required_active
 @manager_required
 def agent_performance():
-    """Agent performance metrics via aggregates."""
+    """Agent performance metrics via a single aggregate query."""
     agent_id = request.args.get('agent_id', type=int)
     agents = User.query.filter(
         User.IsActive == True,
@@ -142,25 +175,25 @@ def agent_performance():
     if agent_id:
         selected_agent = User.query.get(agent_id)
         if selected_agent:
-            base = CallLog.query.filter_by(AssignedTo=agent_id)
-            total = base.count()
-            resolved = base.filter(CallLog.Status.in_(['Resolved', 'Closed'])).count()
-            avg_sat = (
-                db.session.query(func.avg(CallLog.SatisfactionRating))
-                .filter(
-                    CallLog.AssignedTo == agent_id,
-                    CallLog.SatisfactionRating.isnot(None),
+            row = (
+                db.session.query(
+                    func.count(CallLog.CallID),
+                    func.sum(
+                        func.case(
+                            (CallLog.Status.in_(['Resolved', 'Closed']), 1),
+                            else_=0,
+                        )
+                    ),
+                    func.avg(CallLog.SatisfactionRating),
+                    func.avg(CallLog.TimeSpent),
                 )
-                .scalar()
+                .filter(CallLog.AssignedTo == agent_id)
+                .one()
             )
-            avg_time = (
-                db.session.query(func.avg(CallLog.TimeSpent))
-                .filter(
-                    CallLog.AssignedTo == agent_id,
-                    CallLog.TimeSpent.isnot(None),
-                )
-                .scalar()
-            )
+            total = int(row[0] or 0)
+            resolved = int(row[1] or 0)
+            avg_sat = row[2]
+            avg_time = row[3]
             metrics = {
                 'total': total,
                 'resolved': resolved,
@@ -203,13 +236,19 @@ def by_department():
 @login_required_active
 @manager_required
 def export_excel():
-    """Export a simple calls workbook."""
+    """Export a simple calls workbook, optionally filtered by date range."""
     wb = Workbook()
     ws = wb.active
     ws.title = 'Calls'
     headers = ['CallID', 'Caller', 'Phone', 'Department', 'Type', 'Priority', 'Status', 'Date']
     ws.append(headers)
-    query = CallLog.query.order_by(CallLog.DateLogged.desc()).limit(2000)
+    query = CallLog.query.options(load_only(*EXPORT_COLUMNS))
+    start, end = parse_export_range()
+    if start:
+        query = query.filter(CallLog.DateLogged >= start)
+    if end:
+        query = query.filter(CallLog.DateLogged < end)
+    query = query.order_by(CallLog.DateLogged.desc()).limit(2000)
     for c in query.yield_per(200):
         ws.append([
             c.CallID, c.CallerName, c.PhoneNumber, c.Department or '',
@@ -246,7 +285,7 @@ def export_pdf():
     elements.append(Spacer(1, 20))
 
     total = CallLog.query.count()
-    open_c = CallLog.query.filter(CallLog.Status.in_(['Open', 'In Progress', 'Pending'])).count()
+    open_c = CallLog.query.filter(CallLog.Status.in_(OPEN_STATUSES)).count()
     data = [
         ['Metric', 'Value'],
         ['Total Calls', str(total)],
