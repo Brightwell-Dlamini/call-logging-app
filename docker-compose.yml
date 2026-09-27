@@ -3,6 +3,8 @@
 #   docker compose up --build
 # App: http://127.0.0.1:8000
 # Override SECRET_KEY in a local .env (never commit real values).
+# sslmode=disable is required because config.normalize_database_url
+# otherwise appends sslmode=require (correct for Neon, wrong for this image).
 
 services:
   db:
@@ -28,7 +30,7 @@ services:
     environment:
       FLASK_ENV: production
       SECRET_KEY: compose-dev-only-change-me
-      DATABASE_URL: postgresql://calllog:calllog@db:5432/calllog
+      DATABASE_URL: postgresql://calllog:calllog@db:5432/calllog?sslmode=disable
       ENABLE_SEED: "1"
     depends_on:
       db:
