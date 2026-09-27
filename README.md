@@ -5,6 +5,8 @@ Production-style **call logging system** for organisational support desks: triag
 **Live:** [call-logging-app-six.vercel.app](https://call-logging-app-six.vercel.app)  
 **Stack:** Flask · SQLAlchemy · Neon Postgres · Vercel serverless · Bootstrap 5
 
+See **[SECURITY.md](SECURITY.md)** for secrets, `/seed` gating, cookies, and production checklist.
+
 ---
 
 ## Architecture
@@ -25,7 +27,7 @@ Neon Postgres (pooler URL, NullPool on Vercel)
 
 | Layer | Responsibility |
 |-------|----------------|
-| **Blueprints** | `auth`, `dashboard`, `calls`, `board`, `reports`, `admin`, `api`, `api_extras` |
+| **Blueprints** | `auth`, `dashboard`, `calls`, `board`, `reports`, `admin`, `api`, `api_extras`, `import_calls` |
 | **Models** | User, CallLog, CallActivity, SystemAudit, Department, Tag, CannedResponse, Contact, SavedView, Notification, ApiToken |
 | **Security** | Flask-Login sessions, CSRF, hashed passwords, role decorators, personal API tokens |
 | **Persistence** | `DATABASE_URL` → `postgresql+psycopg` + `sslmode=require`; SQLite fallback |
@@ -39,7 +41,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 
 ### Core
 - Role-based UI (Agent desk vs Manager ops vs Admin)
-- Call CRUD, notes, assign, bulk status/assign, CSV export
+- Call CRUD, notes, assign, bulk status/assign, CSV export and import
 - **Tags** – flexible coloured labels with multi-select and filtering
 - **Follow-up dates** – schedule next action; overdue items highlighted
 - **Canned responses** – reusable note/resolution templates
@@ -59,8 +61,9 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - **Personal API Tokens** – long-lived tokens (`clp_…`) for external integrations (read/write scopes)
 - Improved SLA engine with per-priority warn/breach hours
 - Contact auto-creation on call logging
+- Change-feed polling for board and inbox refresh
 
-### REST API (session or future token)
+### REST API (session cookie)
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/api/dashboard/stats` | Includes overdue, tag_counts, SLA, unread notifications |
@@ -88,7 +91,7 @@ Error shape: `{ "ok": false, "error": "..." }`.
 | agent1 | agent123 | Agent |
 | manager1 | manager123 | Manager |
 
-See **[DEMO.md](DEMO.md)** for a 5-minute viva script.
+See **[DEMO.md](DEMO.md)** for a 5-minute viva script. Change these passwords on any shared instance.
 
 ---
 
@@ -100,8 +103,10 @@ See **[DEMO.md](DEMO.md)** for a 5-minute viva script.
 | `SECRET_KEY` | Yes | Strong random string |
 | `FLASK_ENV` | Recommended | `production` |
 | `ENABLE_SEED` | Optional | Set to `1` to allow `/seed` in production |
+| `SEED_TOKEN` | Optional | Shared secret for `/seed` (`X-Seed-Token`) |
+| `MAX_CONTENT_LENGTH` | Optional | Upload cap in bytes (default 2 MiB) |
 
-**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users.
+**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Rotate Neon credentials if they were ever shared.
 
 ---
 
@@ -116,7 +121,15 @@ python run.py
 
 Open http://127.0.0.1:5000
 
-New tables (`saved_views`, `notifications`, `api_tokens`, etc.) are created automatically via `db.create_all()` on startup.
+New tables (`saved_views`, `notifications`, `api_tokens`, etc.) are created automatically via `db.create_all()` on startup. Missing columns and indexes are added by `ensure_schema` / `ensure_indexes`.
+
+### Docker Compose (app + Postgres)
+
+```bash
+docker compose up --build
+```
+
+The web service listens on http://127.0.0.1:8000 and waits for Postgres health. Compose sets `ENABLE_SEED=1` so you can `GET /seed` once, then remove that variable. Do not reuse the compose `SECRET_KEY` outside local machines.
 
 ---
 
@@ -133,7 +146,7 @@ pytest tests/ -v
 
 ```
 app/
-  blueprints/   # auth, calls, board, dashboard, admin, reports, api, api_extras
+  blueprints/   # auth, calls, board, dashboard, admin, reports, api, api_extras, import_calls
   models/       # user, call, department, tag, canned, audit, contact,
                 # saved_view, notification, api_token
   templates/    # shell UI + board + reports + admin
@@ -141,6 +154,7 @@ app/
   utils/        # decorators, helpers (SLA, notifications, timeline), audit
 config.py
 run.py
+docker-compose.yml
 tests/
 ```
 
