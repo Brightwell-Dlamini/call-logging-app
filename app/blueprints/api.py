@@ -2,7 +2,7 @@
 REST API endpoints (session-authenticated).
 """
 from datetime import datetime
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g, has_request_context
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from app import db
@@ -38,6 +38,8 @@ PRESENCE_MAP = {
 
 def api_error(message, status=400, **extra):
     payload = {'ok': False, 'error': message}
+    if has_request_context() and getattr(g, 'request_id', None):
+        payload.setdefault('request_id', g.request_id)
     payload.update(extra)
     return jsonify(payload), status
 
@@ -262,9 +264,17 @@ def list_calls_api():
     page, per_page = _page_args()
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
     items = [serialize_call(c) for c in pagination.items]
-    resp = jsonify(items)
+    resp = jsonify({
+        'ok': True,
+        'items': items,
+        'page': page,
+        'per_page': per_page,
+        'total': pagination.total,
+        'pages': pagination.pages,
+    })
     resp.headers['X-Total-Count'] = str(pagination.total)
     resp.headers['X-Page'] = str(page)
+    resp.headers['X-Per-Page'] = str(per_page)
     return resp
 
 
@@ -406,7 +416,7 @@ def claim_next():
         .first()
     )
     if call is None:
-        return jsonify(ok=False, message='No unassigned calls in the pool')
+        return api_error('No unassigned calls in the pool', 404)
 
     call.AssignedTo = current_user.UserID
     if call.Status == 'Open':
@@ -574,7 +584,7 @@ def quick_action(call_id):
 @login_required_active
 def list_users_api():
     users = User.query.filter(User.IsActive == True).order_by(User.FullName).all()
-    return jsonify([
+    items = [
         {
             'id': u.UserID,
             'name': u.FullName,
@@ -583,4 +593,5 @@ def list_users_api():
             'presence': getattr(u, 'Presence', None),
         }
         for u in users
-    ])
+    ]
+    return jsonify({'ok': True, 'items': items, 'total': len(items)})
