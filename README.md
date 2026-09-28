@@ -64,9 +64,10 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/api/dashboard/stats` | Includes overdue, tag_counts, SLA, unread notifications |
-| GET/POST | `/api/calls` | List / create |
+| GET/POST | `/api/calls` | List envelope `{ok, items, page, per_page, total}` / create |
 | GET/PATCH | `/api/calls/<id>` | Detail / update |
 | POST | `/api/calls/<id>/quick` | claim · resolve · escalate · pending · reopen |
+| GET | `/api/users` | Active users envelope `{ok, items, total}` |
 | GET | `/api/views` | List saved views |
 | POST/PUT/DELETE | `/api/views` / `/api/views/<id>` | Manage saved views |
 | GET | `/api/inbox` | Notifications (supports `?unread=1`) |
@@ -76,7 +77,9 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 | GET/POST/DELETE | `/api/tokens` | Personal access tokens |
 | GET | `/api/tags`, `/api/canned`, `/api/search` | Supporting resources |
 
-Error shape: `{ "ok": false, "error": "..." }`.
+Error shape: `{ "ok": false, "error": "..." }` plus optional `request_id`.  
+Unauthenticated `/api/*` calls return JSON **401** (not an HTML login redirect).  
+Every response includes `X-Request-ID` (echoes the inbound header when present).
 
 ---
 

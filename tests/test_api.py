@@ -78,3 +78,36 @@ def test_api_quick_unknown_action(auth_client, app):
     r = auth_client.post(f'/api/calls/{cid}/quick', json={'action': 'explode'})
     assert r.status_code == 400
     assert r.get_json()['ok'] is False
+
+
+def test_api_list_uses_envelope(auth_client):
+    r = auth_client.get('/api/calls?per_page=5')
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['ok'] is True
+    assert isinstance(data['items'], list)
+    assert 'page' in data and 'total' in data
+    assert r.headers.get('X-Total-Count') == str(data['total'])
+    assert r.headers.get('X-Request-ID')
+
+
+def test_api_users_uses_envelope(auth_client):
+    r = auth_client.get('/api/users')
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['ok'] is True
+    assert isinstance(data['items'], list)
+    assert data['total'] == len(data['items'])
+
+
+def test_api_unauthenticated_is_json(client):
+    r = client.get('/api/calls')
+    assert r.status_code == 401
+    data = r.get_json()
+    assert data['ok'] is False
+    assert data['error']
+
+
+def test_api_echoes_request_id(client):
+    r = client.get('/api/dashboard/stats', headers={'X-Request-ID': 'test-rid-123'})
+    assert r.headers.get('X-Request-ID') == 'test-rid-123'
