@@ -17,8 +17,16 @@ INDEX_STATEMENTS = (
     'ON call_log ("FollowUpDate")',
     'CREATE INDEX IF NOT EXISTS ix_call_log_lastupdated '
     'ON call_log ("LastUpdated")',
+    'CREATE INDEX IF NOT EXISTS ix_call_log_type_datelogged '
+    'ON call_log ("CallType", "DateLogged")',
+    'CREATE INDEX IF NOT EXISTS ix_call_log_priority_status '
+    'ON call_log ("Priority", "Status")',
+    'CREATE INDEX IF NOT EXISTS ix_call_log_status_lastupdated '
+    'ON call_log ("Status", "LastUpdated")',
     'CREATE INDEX IF NOT EXISTS ix_call_activity_activitydate '
     'ON call_activity ("ActivityDate")',
+    'CREATE INDEX IF NOT EXISTS ix_call_activity_call_date '
+    'ON call_activity ("CallID", "ActivityDate")',
     'CREATE INDEX IF NOT EXISTS ix_users_role_active '
     'ON users ("Role", "IsActive")',
     'CREATE INDEX IF NOT EXISTS ix_notifications_user_read '
@@ -33,6 +41,10 @@ INDEX_STATEMENTS = (
     'ON api_tokens ("TokenPrefix")',
     'CREATE INDEX IF NOT EXISTS ix_contacts_phone '
     'ON contacts ("PhoneNumber")',
+    'CREATE INDEX IF NOT EXISTS ix_system_audit_created '
+    'ON system_audit ("CreatedAt")',
+    'CREATE INDEX IF NOT EXISTS ix_system_audit_action '
+    'ON system_audit ("Action")',
 )
 
 

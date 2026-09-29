@@ -48,6 +48,8 @@ def create_app(config_name=None):
     app = Flask(__name__)
     app.config.from_object(config.get(config_name, config['default']))
     app.config.setdefault('WTF_CSRF_HEADERS', ['X-CSRFToken', 'X-CSRF-Token'])
+    # CSRF is applied after Bearer-token auth so verified API clients are not blocked.
+    app.config['WTF_CSRF_CHECK_DEFAULT'] = False
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -85,14 +87,42 @@ def create_app(config_name=None):
 
     @app.before_request
     def _assign_request_id():
-        incoming = (request.headers.get('X-Request-ID') or '').strip()[:64]
-        g.request_id = incoming or uuid.uuid4().hex
+        incoming = (request.headers.get('X-Request-ID') or '').strip()
+        if incoming and 8 <= len(incoming) <= 64 and all(
+            c.isalnum() or c in '-_' for c in incoming
+        ):
+            g.request_id = incoming
+        else:
+            g.request_id = uuid.uuid4().hex
+
+    @app.before_request
+    def _authenticate_api_token_and_csrf():
+        from app.utils.token_auth import authenticate_request
+        rejected = authenticate_request()
+        if rejected is not None:
+            return rejected
+        if getattr(g, 'api_token', None):
+            return None
+        if not app.config.get('WTF_CSRF_ENABLED', True):
+            return None
+        csrf.protect()
 
     @app.after_request
-    def _attach_request_id(response):
-        rid = getattr(g, 'request_id', None)
-        if rid:
-            response.headers.setdefault('X-Request-ID', rid)
+    def _security_headers(response):
+        rid = getattr(g, 'request_id', None) or uuid.uuid4().hex
+        response.headers.setdefault('X-Request-ID', rid)
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'DENY')
+        response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+        response.headers.setdefault(
+            'Permissions-Policy',
+            'camera=(), microphone=(), geolocation=()',
+        )
+        if _is_production():
+            response.headers.setdefault(
+                'Strict-Transport-Security',
+                'max-age=31536000; includeSubDomains',
+            )
         return response
 
     def _json_error(message, status):
@@ -162,6 +192,7 @@ def create_app(config_name=None):
             'service': 'call-logging-app',
             'database': db_status,
             'backend': backend,
+            'request_id': getattr(g, 'request_id', None),
         }, code
 
     @app.route('/seed', methods=['POST', 'GET'])
@@ -203,7 +234,6 @@ def create_app(config_name=None):
                 )
                 db.session.commit()
                 payload = {'status': 'ok', 'created': created}
-                # Never echo demo passwords from a production deployment.
                 if not _is_production() and any(
                     label in ('admin', 'agent1', 'manager1') for label in created
                 ):
