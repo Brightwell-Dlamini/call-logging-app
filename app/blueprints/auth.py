@@ -3,7 +3,8 @@ Authentication blueprint: login, logout, registration (admin only).
 """
 from datetime import datetime, timedelta
 from flask import (
-    Blueprint, render_template, redirect, url_for, flash, request, session
+    Blueprint, render_template, redirect, url_for, flash, request, session,
+    current_app,
 )
 from flask_login import login_user, logout_user, current_user, login_required
 from app import db, limiter
@@ -17,6 +18,12 @@ auth_bp = Blueprint('auth', __name__)
 _login_attempts = {}
 
 
+def _lockout_settings():
+    max_attempts = int(current_app.config.get('MAX_LOGIN_ATTEMPTS', 5))
+    minutes = int(current_app.config.get('LOGIN_LOCKOUT_MINUTES', 15))
+    return max_attempts, minutes
+
+
 def _is_locked(username: str) -> bool:
     entry = _login_attempts.get(username)
     if not entry:
@@ -28,10 +35,11 @@ def _is_locked(username: str) -> bool:
 
 
 def _record_failed_attempt(username: str) -> None:
+    max_attempts, minutes = _lockout_settings()
     entry = _login_attempts.get(username, {'count': 0, 'locked_until': None})
     entry['count'] += 1
-    if entry['count'] >= 5:
-        entry['locked_until'] = datetime.utcnow() + timedelta(minutes=15)
+    if entry['count'] >= max_attempts:
+        entry['locked_until'] = datetime.utcnow() + timedelta(minutes=minutes)
         entry['count'] = 0
     _login_attempts[username] = entry
 
