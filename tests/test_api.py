@@ -61,6 +61,31 @@ def test_api_get_missing_is_json(auth_client):
     assert data['error']
 
 
+def test_api_unknown_route_is_json(auth_client):
+    r = auth_client.get('/api/does-not-exist')
+    assert r.status_code == 404
+    data = r.get_json()
+    assert data['ok'] is False
+    assert data['error'] == 'Not found'
+    assert r.headers.get('X-Request-ID')
+
+
+def test_health_echoes_request_id(client):
+    r = client.get('/health', headers={'X-Request-ID': 'test-rid-123'})
+    assert r.status_code == 200
+    assert r.headers.get('X-Request-ID') == 'test-rid-123'
+
+
+def test_api_list_envelope(auth_client):
+    r = auth_client.get('/api/calls?per_page=10')
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['ok'] is True
+    assert isinstance(data['items'], list)
+    assert 'page' in data and 'total' in data and 'per_page' in data
+    assert r.headers.get('X-Total-Count') == str(data['total'])
+
+
 def test_api_list_rejects_bad_status(auth_client):
     r = auth_client.get('/api/calls?status=Nope')
     assert r.status_code == 400

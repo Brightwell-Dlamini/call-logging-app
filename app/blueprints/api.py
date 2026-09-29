@@ -262,7 +262,14 @@ def list_calls_api():
     page, per_page = _page_args()
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
     items = [serialize_call(c) for c in pagination.items]
-    resp = jsonify(items)
+    resp = jsonify({
+        'ok': True,
+        'items': items,
+        'page': page,
+        'per_page': per_page,
+        'total': pagination.total,
+        'pages': pagination.pages,
+    })
     resp.headers['X-Total-Count'] = str(pagination.total)
     resp.headers['X-Page'] = str(page)
     return resp
@@ -574,13 +581,16 @@ def quick_action(call_id):
 @login_required_active
 def list_users_api():
     users = User.query.filter(User.IsActive == True).order_by(User.FullName).all()
-    return jsonify([
-        {
-            'id': u.UserID,
-            'name': u.FullName,
-            'username': u.Username,
-            'role': u.Role,
-            'presence': getattr(u, 'Presence', None),
-        }
-        for u in users
-    ])
+    return jsonify({
+        'ok': True,
+        'items': [
+            {
+                'id': u.UserID,
+                'name': u.FullName,
+                'username': u.Username,
+                'role': u.Role,
+                'presence': getattr(u, 'Presence', None),
+            }
+            for u in users
+        ],
+    })
