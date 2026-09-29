@@ -8,16 +8,16 @@
     </div>
     <div class="page-actions">
         <a href="{{ url_for('reports.index') }}" class="btn btn-secondary btn-sm">
-            <i class="fas fa-arrow-left"></i> Reports
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Reports
         </a>
     </div>
 </div>
 
 <div class="filter-bar mb-4">
-    <form method="GET" class="row align-items-end">
+    <form method="GET" class="row align-items-end g-2">
         <div class="col-md-4">
-            <label class="form-label">Select agent</label>
-            <select name="agent_id" class="form-select" onchange="this.form.submit()">
+            <label class="form-label" for="agent-id">Select agent</label>
+            <select id="agent-id" name="agent_id" class="form-select">
                 <option value="">— Choose —</option>
                 {% for a in agents %}
                 <option value="{{ a.UserID }}" {% if selected_agent and selected_agent.UserID == a.UserID %}selected{% endif %}>
@@ -26,12 +26,23 @@
                 {% endfor %}
             </select>
         </div>
+        <div class="col-auto">
+            <label class="form-label" for="agent-from">From</label>
+            <input id="agent-from" type="date" name="from" class="form-control" value="{{ from_date }}">
+        </div>
+        <div class="col-auto">
+            <label class="form-label" for="agent-to">To</label>
+            <input id="agent-to" type="date" name="to" class="form-control" value="{{ to_date }}">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Update</button>
+        </div>
     </form>
 </div>
 
 {% if metrics and selected_agent %}
 <div class="cl-card mb-3">
-    <div class="cl-card-header">{{ selected_agent.FullName }}</div>
+    <div class="cl-card-header">{{ selected_agent.FullName }} · {{ from_date }} to {{ to_date }}</div>
     <div class="cl-card-body">
         <div class="stat-grid" style="margin-bottom:0;grid-template-columns:repeat(5,1fr);">
             <div>
@@ -59,12 +70,12 @@
 </div>
 {% elif selected_agent is none and request.args.get('agent_id') %}
 <div class="empty-state">
-    <div class="empty-icon"><i class="fas fa-user"></i></div>
+    <div class="empty-icon" aria-hidden="true"><i class="fas fa-user"></i></div>
     <p>Agent not found.</p>
 </div>
 {% else %}
 <div class="empty-state">
-    <div class="empty-icon"><i class="fas fa-user-check"></i></div>
+    <div class="empty-icon" aria-hidden="true"><i class="fas fa-user-check"></i></div>
     <p>Select an agent to view performance metrics.</p>
 </div>
 {% endif %}

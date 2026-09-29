@@ -49,6 +49,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - **Configurable SLA** thresholds by priority (`ok` / `warn` / `breach`)
 - Dashboard charts (status, 7-day volume, department, tag distribution, overdue)
 - Reports: daily, monthly, agent, department · Excel & PDF
+- **Date-bounded exports** – Excel/PDF and agent/department views accept `from`/`to` (default last 30 or 90 days, 2 000-row cap); downloads write `report.export_*` system audit events
 - **Audit trail** – call changes + system events
 - **Dark mode** – system preference + manual toggle
 

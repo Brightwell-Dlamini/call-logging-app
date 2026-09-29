@@ -3,35 +3,61 @@
 {% block content %}
 <div class="page-header">
     <div>
-        <h1 class="page-title">Reports</h1>
+        <h1 class="page-title" id="reports-heading">Reports</h1>
         <p class="page-subtitle">Analytics and operational insight</p>
     </div>
 </div>
 
-<div class="report-hub">
+<div class="report-hub" role="navigation" aria-labelledby="reports-heading">
     <div class="report-card">
-        <div class="stat-icon blue"><i class="fas fa-calendar-day"></i></div>
-        <h3>Daily summary</h3>
+        <div class="stat-icon blue" aria-hidden="true"><i class="fas fa-calendar-day"></i></div>
+        <h2 class="h3">Daily summary</h2>
         <p>Calls logged for a specific day with status breakdown.</p>
-        <form method="GET" action="{{ url_for('reports.daily') }}" class="d-flex gap-2 mt-2">
-            <input type="date" name="date" class="form-control form-control-sm" style="max-width:150px;">
-            <button class="btn btn-primary btn-sm">View</button>
+        <form method="GET" action="{{ url_for('reports.daily') }}" class="d-flex gap-2 mt-2 align-items-end">
+            <div>
+                <label class="form-label" for="daily-date">Date</label>
+                <input id="daily-date" type="date" name="date" class="form-control form-control-sm" style="max-width:160px;" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">View</button>
         </form>
     </div>
     <a href="{{ url_for('reports.monthly') }}" class="report-card">
-        <div class="stat-icon violet"><i class="fas fa-chart-column"></i></div>
-        <h3>Monthly summary</h3>
+        <div class="stat-icon violet" aria-hidden="true"><i class="fas fa-chart-column"></i></div>
+        <h2 class="h3">Monthly summary</h2>
         <p>Status, type, and priority breakdowns for the month.</p>
     </a>
     <a href="{{ url_for('reports.agent_performance') }}" class="report-card">
-        <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
-        <h3>Agent performance</h3>
+        <div class="stat-icon green" aria-hidden="true"><i class="fas fa-user-check"></i></div>
+        <h2 class="h3">Agent performance</h2>
         <p>Resolution rates, volume, and satisfaction by agent.</p>
     </a>
     <a href="{{ url_for('reports.by_department') }}" class="report-card">
-        <div class="stat-icon amber"><i class="fas fa-building"></i></div>
-        <h3>By department</h3>
+        <div class="stat-icon amber" aria-hidden="true"><i class="fas fa-building"></i></div>
+        <h2 class="h3">By department</h2>
         <p>Where demand is concentrated across the organization.</p>
     </a>
 </div>
+
+<section class="cl-card mt-4" aria-labelledby="export-heading">
+    <div class="cl-card-header" id="export-heading">Export calls</div>
+    <div class="cl-card-body">
+        <p class="text-muted mb-3">Downloads are limited to 2&nbsp;000 rows and at most one year. Exports are recorded in the system audit log.</p>
+        <form class="row g-2 align-items-end" method="GET">
+            <div class="col-auto">
+                <label class="form-label" for="export-from">From</label>
+                <input id="export-from" type="date" name="from" class="form-control" value="{{ default_from }}">
+            </div>
+            <div class="col-auto">
+                <label class="form-label" for="export-to">To</label>
+                <input id="export-to" type="date" name="to" class="form-control" value="{{ default_to }}">
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-secondary" type="submit" formaction="{{ url_for('reports.export_excel') }}">Download Excel</button>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-secondary" type="submit" formaction="{{ url_for('reports.export_pdf') }}">Download PDF summary</button>
+            </div>
+        </form>
+    </div>
+</section>
 {% endblock %}
