@@ -20,6 +20,7 @@ from reportlab.lib import colors
 from app import db
 from app.models import CallLog, User, Department
 from app.utils.decorators import login_required_active, manager_required
+from app.utils.audit import log_audit
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -40,6 +41,17 @@ def _counts_by(column, start, end):
         .all()
     )
     return {key: count for key, count in rows if key is not None}
+
+
+def _audit_export(kind, extra=None):
+    details = extra or f'format={kind}'
+    log_audit(
+        f'report.export.{kind}',
+        details,
+        target_type='report',
+        target_id=kind,
+    )
+    db.session.commit()
 
 
 @reports_bp.route('/')
@@ -210,15 +222,18 @@ def export_excel():
     headers = ['CallID', 'Caller', 'Phone', 'Department', 'Type', 'Priority', 'Status', 'Date']
     ws.append(headers)
     query = CallLog.query.order_by(CallLog.DateLogged.desc()).limit(2000)
+    rows = 0
     for c in query.yield_per(200):
         ws.append([
             c.CallID, c.CallerName, c.PhoneNumber, c.Department or '',
             c.CallType, c.Priority, c.Status,
             c.DateLogged.strftime('%Y-%m-%d %H:%M') if c.DateLogged else ''
         ])
+        rows += 1
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
+    _audit_export('excel', extra=f'rows={rows} limit=2000')
     return send_file(
         buffer,
         as_attachment=True,
@@ -265,6 +280,7 @@ def export_pdf():
     elements.append(table)
     doc.build(elements)
     buffer.seek(0)
+    _audit_export('pdf', extra=f'total={total} open={open_c}')
     return send_file(
         buffer,
         as_attachment=True,
