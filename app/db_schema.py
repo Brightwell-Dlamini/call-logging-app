@@ -86,6 +86,11 @@ def ensure_schema(db) -> None:
             END $$;
         """))
 
+        db.session.execute(text("""
+            ALTER TABLE system_audit
+            ADD COLUMN IF NOT EXISTS "RequestID" VARCHAR(64);
+        """))
+
     elif is_sqlite:
         user_cols = _sqlite_columns(db, 'users')
         if 'Presence' not in user_cols:
@@ -115,5 +120,14 @@ def ensure_schema(db) -> None:
             SET LastUpdated = COALESCE(LastUpdated, DateLogged, CURRENT_TIMESTAMP)
             WHERE LastUpdated IS NULL;
         """))
+
+        try:
+            audit_cols = _sqlite_columns(db, 'system_audit')
+        except Exception:
+            audit_cols = set()
+        if audit_cols and 'RequestID' not in audit_cols:
+            db.session.execute(text(
+                'ALTER TABLE system_audit ADD COLUMN "RequestID" VARCHAR(64)'
+            ))
 
     db.session.commit()

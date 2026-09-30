@@ -16,6 +16,7 @@ class SystemAudit(db.Model):
     __table_args__ = (
         db.Index('ix_system_audit_created', 'CreatedAt'),
         db.Index('ix_system_audit_action', 'Action'),
+        db.Index('ix_system_audit_request', 'RequestID'),
     )
 
     AuditID = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -30,6 +31,7 @@ class SystemAudit(db.Model):
     TargetType = db.Column(db.String(40), nullable=True)
     TargetID = db.Column(db.String(80), nullable=True)
     IpAddress = db.Column(db.String(64), nullable=True)
+    RequestID = db.Column(db.String(64), nullable=True)
     CreatedAt = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship('User', foreign_keys=[UserID])

@@ -1,6 +1,6 @@
 """Helpers for writing system audit events."""
 from typing import Optional
-from flask import has_request_context, request
+from flask import g, has_request_context, request
 from flask_login import current_user
 from app import db
 from app.models.audit import SystemAudit
@@ -13,6 +13,15 @@ def _client_ip() -> Optional[str]:
     if forwarded:
         return forwarded.split(',')[0].strip()[:64]
     return (request.remote_addr or '')[:64] or None
+
+
+def _request_id() -> Optional[str]:
+    if not has_request_context():
+        return None
+    rid = getattr(g, 'request_id', None)
+    if not rid:
+        return None
+    return str(rid)[:64]
 
 
 def log_audit(
@@ -32,6 +41,7 @@ def log_audit(
         TargetType=target_type,
         TargetID=str(target_id)[:80] if target_id is not None else None,
         IpAddress=_client_ip(),
+        RequestID=_request_id(),
     )
     db.session.add(event)
     return event
