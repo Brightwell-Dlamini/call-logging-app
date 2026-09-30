@@ -18,7 +18,7 @@ from app.utils.audit import log_audit
 admin_bp = Blueprint('admin', __name__)
 
 
-def _audit_row(source, event_id, when, user_label, call_id, action, details, ip=None):
+def _audit_row(source, event_id, when, user_label, call_id, action, details, ip=None, request_id=None):
     return {
         'source': source,
         'id': event_id,
@@ -28,6 +28,7 @@ def _audit_row(source, event_id, when, user_label, call_id, action, details, ip=
         'action': action,
         'details': details or '',
         'ip': ip or '',
+        'request_id': request_id or '',
     }
 
 
@@ -422,6 +423,7 @@ def activities():
                 a.Action,
                 a.Details,
                 a.IpAddress,
+                getattr(a, 'RequestID', None),
             ))
     if source in ('all', 'calls'):
         call_q = CallActivity.query.options(joinedload(CallActivity.user)).order_by(CallActivity.ActivityDate.desc())
@@ -443,6 +445,7 @@ def activities():
             or q in (r['details'] or '').lower()
             or q in (r['user'] or '').lower()
             or q in str(r['call_id'] or '')
+            or q in (r.get('request_id') or '').lower()
         ]
 
     rows.sort(key=lambda r: r['when'] or datetime.min, reverse=True)
@@ -476,7 +479,7 @@ def activities_export():
     """CSV export of recent audit events from both sources."""
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['Source', 'ID', 'CallID', 'User', 'Action', 'Details', 'IP', 'When'])
+    writer.writerow(['Source', 'ID', 'CallID', 'User', 'Action', 'Details', 'IP', 'RequestID', 'When'])
 
     sys_rows = (
         SystemAudit.query.options(joinedload(SystemAudit.user))
@@ -501,6 +504,7 @@ def activities_export():
             a.Action,
             a.Details or '',
             a.IpAddress or '',
+            getattr(a, 'RequestID', None) or '',
         ))
     for a in call_rows:
         merged.append((
@@ -512,9 +516,10 @@ def activities_export():
             a.Action,
             a.Details or '',
             '',
+            '',
         ))
     merged.sort(key=lambda r: r[0] or datetime.min, reverse=True)
-    for when, source, eid, call_id, user, action, details, ip in merged[:5000]:
+    for when, source, eid, call_id, user, action, details, ip, request_id in merged[:5000]:
         writer.writerow([
             source,
             eid,
@@ -523,8 +528,11 @@ def activities_export():
             action,
             details,
             ip,
+            request_id,
             when.isoformat() if when else '',
         ])
+    log_audit('audit.export', f'rows={min(len(merged), 5000)}', target_type='ops', target_id='audit_export')
+    db.session.commit()
     return Response(
         output.getvalue(),
         mimetype='text/csv',

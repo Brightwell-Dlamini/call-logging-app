@@ -46,3 +46,25 @@ def test_audit_page_requires_admin(client):
     client.post('/login', data={'username': 'agent1', 'password': 'agent123'}, follow_redirects=True)
     r = client.get('/admin/activities')
     assert r.status_code in (302, 403)
+
+
+def test_login_audit_stores_request_id(client, app):
+    response = client.post(
+        '/login',
+        data={'username': 'admin', 'password': 'admin123'},
+        headers={'X-Request-ID': 'audit-corr-login-01'},
+        follow_redirects=True,
+    )
+    assert response.headers.get('X-Request-ID') == 'audit-corr-login-01'
+    with app.app_context():
+        row = SystemAudit.query.filter_by(Action='auth.login').order_by(SystemAudit.AuditID.desc()).first()
+        assert row is not None
+        assert row.RequestID == 'audit-corr-login-01'
+
+
+def test_audit_export_records_event(auth_client, app):
+    response = auth_client.get('/admin/activities/export')
+    assert response.status_code == 200
+    assert b'RequestID' in response.data
+    with app.app_context():
+        assert SystemAudit.query.filter_by(Action='audit.export').count() >= 1

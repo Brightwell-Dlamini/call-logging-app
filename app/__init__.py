@@ -5,7 +5,7 @@ import logging
 import os
 import uuid
 from logging.handlers import RotatingFileHandler
-from flask import Flask, g, jsonify, render_template, request, redirect, url_for
+from flask import Flask, g, has_request_context, jsonify, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -21,6 +21,17 @@ migrate = Migrate()
 cache = Cache()
 limiter = Limiter(key_func=get_remote_address)
 csrf = CSRFProtect()
+
+
+class RequestIdLogFilter(logging.Filter):
+    """Attach g.request_id to log records when a request is active."""
+
+    def filter(self, record):
+        rid = '-'
+        if has_request_context():
+            rid = getattr(g, 'request_id', None) or '-'
+        record.request_id = rid
+        return True
 
 
 def _is_production():
@@ -262,6 +273,9 @@ def create_app(config_name=None):
     csrf.exempt(health)
     csrf.exempt(seed_endpoint)
 
+    request_id_filter = RequestIdLogFilter()
+    app.logger.addFilter(request_id_filter)
+
     if not app.debug and not app.testing:
         if not (os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV')):
             try:
@@ -270,8 +284,10 @@ def create_app(config_name=None):
                 file_handler = RotatingFileHandler(
                     'logs/call_logging.log', maxBytes=10240000, backupCount=10
                 )
+                file_handler.addFilter(request_id_filter)
                 file_handler.setFormatter(logging.Formatter(
-                    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+                    '%(asctime)s %(levelname)s request_id=%(request_id)s: %(message)s '
+                    '[in %(pathname)s:%(lineno)d]'
                 ))
                 file_handler.setLevel(logging.INFO)
                 app.logger.addHandler(file_handler)
