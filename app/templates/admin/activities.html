@@ -14,7 +14,7 @@
 </div>
 <form class="audit-filter-wrap d-flex gap-2 flex-wrap align-items-center mb-3" method="get" action="{{ url_for('admin.activities') }}">
     <label class="visually-hidden" for="auditQ">Search audit events</label>
-    <input type="search" id="auditQ" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Search action, user, or details" autocomplete="off">
+    <input type="search" id="auditQ" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Search action, user, details, or request id" autocomplete="off">
     <label class="visually-hidden" for="auditSource">Source</label>
     <select id="auditSource" name="source" class="form-select form-select-sm" style="max-width:10rem">
         <option value="all" {% if source == 'all' %}selected{% endif %}>All sources</option>
@@ -28,7 +28,7 @@
         <table class="table">
             <caption class="visually-hidden">Merged system and call audit events</caption>
             <thead>
-                <tr><th>Source</th><th>ID</th><th>Date</th><th>User</th><th>Call</th><th>Action</th><th>Details</th><th>IP</th></tr>
+                <tr><th>Source</th><th>ID</th><th>Date</th><th>User</th><th>Call</th><th>Action</th><th>Details</th><th>IP</th><th>Request</th></tr>
             </thead>
             <tbody>
                 {% for a in activities %}
@@ -41,9 +41,10 @@
                     <td class="fw-medium" style="color:var(--cl-text)">{{ a.action }}</td>
                     <td class="text-muted" style="font-size:0.8125rem;">{{ a.details }}</td>
                     <td class="text-muted" style="font-size:0.75rem;">{{ a.ip }}</td>
+                    <td class="text-muted" style="font-size:0.75rem;font-family:ui-monospace,monospace;">{{ a.request_id or '—' }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="8"><div class="empty-state"><p>No activity recorded.</p></div></td></tr>
+                <tr><td colspan="9"><div class="empty-state"><p>No activity recorded.</p></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>
