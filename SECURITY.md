@@ -38,6 +38,14 @@ The seed route can create demo users and sample calls.
 - Scope tokens to the minimum needed (read vs write) and revoke unused tokens from the admin/token UI.
 - CSV import is size-capped (`MAX_CONTENT_LENGTH` / `MAX_IMPORT_BYTES`, default 2 MiB). Only administrators should import.
 
+## Request correlation and audit
+
+- Every request is assigned an `X-Request-ID` (accepted from the client when 8–64 alphanumeric characters, hyphens, or underscores; otherwise generated).
+- JSON error envelopes and `/health` include `request_id`.
+- System audit rows store `RequestID` so an administrator can match a UI or API action to application logs.
+- Rotating file logs (non-Vercel) include `request_id=` on each line.
+- Exporting the admin audit CSV writes `audit.export`.
+
 ## Health endpoint
 
 `GET /health` is CSRF-exempt and reports database reachability. It does not require a session. Do not put secrets in the payload.
