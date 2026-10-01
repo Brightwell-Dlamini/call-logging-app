@@ -7,6 +7,9 @@ services:
       FLASK_ENV: production
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DATABASE_URL: postgresql://calllog:calllogpass@db:5432/call_logging
+      ENABLE_SEED: "0"
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
     depends_on:
       db:
         condition: service_healthy
@@ -26,8 +29,9 @@ services:
       POSTGRES_PASSWORD: calllogpass
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Bind only to loopback so the database is not published on all interfaces.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U calllog -d call_logging"]

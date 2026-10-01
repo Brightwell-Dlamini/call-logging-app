@@ -30,6 +30,7 @@ The seed route can create demo users and sample calls.
 - When `SEED_TOKEN` is set, callers must send it as `X-Seed-Token` or `?token=`.
 - Production responses never include demo passwords, even when seeding is temporarily enabled.
 - Seed success and rejection are recorded in `system_audit` (`ops.seed`, `ops.seed_denied`).
+- The endpoint is rate-limited to five requests per minute per remote address.
 - Leave `ENABLE_SEED` unset (or `0`) after a one-off bootstrap. Change demo passwords immediately if those accounts will remain.
 
 ## API tokens and imports
@@ -38,9 +39,17 @@ The seed route can create demo users and sample calls.
 - Scope tokens to the minimum needed (read vs write) and revoke unused tokens from the admin/token UI.
 - CSV import is size-capped (`MAX_CONTENT_LENGTH` / `MAX_IMPORT_BYTES`, default 2 MiB). Only administrators should import.
 
+## HTTP headers
+
+Responses set `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, and a Content-Security-Policy that allows the current first-party assets plus the documented CDNs (jsDelivr, cdnjs, DataTables, jQuery). HTML responses also send `Cache-Control: no-store`. Production adds HSTS.
+
 ## Health endpoint
 
 `GET /health` is CSRF-exempt and reports database reachability. It does not require a session. Do not put secrets in the payload.
+
+## Docker Compose
+
+Postgres is published on `127.0.0.1:5432` only so it is not reachable from other hosts by default. Override the mapping if you need a remote client. The web service keeps `ENABLE_SEED=0` unless you explicitly enable it.
 
 ## Reporting issues
 

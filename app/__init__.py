@@ -22,6 +22,20 @@ cache = Cache()
 limiter = Limiter(key_func=get_remote_address)
 csrf = CSRFProtect()
 
+# Compatible with existing CDN scripts/styles and inline theme/presence snippets.
+_CSP = (
+    "default-src 'self'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'; "
+    "object-src 'none'; "
+    "img-src 'self' data:; "
+    "font-src 'self' https://cdnjs.cloudflare.com data:; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.datatables.net; "
+    "script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net https://cdn.datatables.net; "
+    "connect-src 'self'"
+)
+
 
 def _is_production():
     return (
@@ -118,6 +132,11 @@ def create_app(config_name=None):
             'Permissions-Policy',
             'camera=(), microphone=(), geolocation=()',
         )
+        response.headers.setdefault('Cross-Origin-Opener-Policy', 'same-origin')
+        response.headers.setdefault('Content-Security-Policy', _CSP)
+        ctype = (response.headers.get('Content-Type') or '').lower()
+        if 'text/html' in ctype:
+            response.headers.setdefault('Cache-Control', 'no-store')
         if _is_production():
             response.headers.setdefault(
                 'Strict-Transport-Security',
@@ -196,6 +215,7 @@ def create_app(config_name=None):
         }, code
 
     @app.route('/seed', methods=['POST', 'GET'])
+    @limiter.limit('5 per minute')
     def seed_endpoint():
         from app.utils.audit import log_audit
 
