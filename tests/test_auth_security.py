@@ -43,6 +43,18 @@ def test_health_sets_security_headers(client):
     assert r.headers.get('X-Frame-Options') == 'DENY'
     assert r.headers.get('Referrer-Policy') == 'strict-origin-when-cross-origin'
     assert r.headers.get('X-Request-ID')
+    assert r.headers.get('Cross-Origin-Opener-Policy') == 'same-origin'
+    csp = r.headers.get('Content-Security-Policy', '')
+    assert "default-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert 'cdn.jsdelivr.net' in csp
+
+
+def test_login_html_is_not_stored(client):
+    r = client.get('/login')
+    assert r.status_code == 200
+    assert r.headers.get('Cache-Control') == 'no-store'
+    assert "default-src 'self'" in (r.headers.get('Content-Security-Policy') or '')
 
 
 def test_agent_cannot_open_admin_users(client):
