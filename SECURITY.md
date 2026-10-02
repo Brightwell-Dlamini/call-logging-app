@@ -13,10 +13,12 @@ This document describes how CallLog Pro is intended to be operated. It is not a 
 
 - Passwords are stored hashed via the `User` model helpers.
 - Flask-Login uses `session_protection = 'strong'`.
+- A successful login clears the pre-authentication session and stores a fresh `login_nonce` before the redirect. This drops values that may have been set on an anonymous cookie.
 - Login is rate-limited (10 attempts per minute per remote address).
 - Five consecutive failed passwords for the same username lock that username for 15 minutes (in-process; resets on cold start).
 - Failed login, lockout, inactive-account, successful login, and logout are written to `system_audit`.
 - CSRF protection is enabled application-wide. JSON clients may send `X-CSRFToken` or `X-CSRF-Token`.
+- Sign-out is a POST. `GET /logout` only renders a confirmation page, so a cross-site image or link cannot end a session. The sidebar submits the CSRF token with the form.
 
 ## Roles
 

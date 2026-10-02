@@ -49,3 +49,22 @@ def test_agent_cannot_open_admin_users(client):
     client.post('/login', data={'username': 'agent1', 'password': 'agent123'}, follow_redirects=True)
     r = client.get('/admin/users')
     assert r.status_code in (302, 403)
+
+
+def test_get_logout_does_not_end_session(client):
+    client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+    page = client.get('/logout')
+    assert page.status_code == 200
+    assert b'Sign out' in page.data
+    still = client.get('/dashboard')
+    assert still.status_code == 200
+
+
+def test_post_logout_ends_session(client):
+    client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=True)
+    done = client.post('/logout', follow_redirects=False)
+    assert done.status_code in (302, 303)
+    assert '/login' in done.headers.get('Location', '')
+    after = client.get('/dashboard', follow_redirects=False)
+    assert after.status_code in (302, 303)
+    assert '/login' in after.headers.get('Location', '')

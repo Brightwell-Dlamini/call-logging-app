@@ -107,7 +107,10 @@
                     </select>
                 </div>
             </div>
-            <a href="{{ url_for('auth.logout') }}" class="nav-item logout"><i class="fas fa-arrow-right-from-bracket"></i><span>Sign out</span></a>
+            <form method="post" action="{{ url_for('auth.logout') }}" class="logout-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="nav-item logout"><i class="fas fa-arrow-right-from-bracket"></i><span>Sign out</span></button>
+            </form>
         </div>
     </aside>
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>

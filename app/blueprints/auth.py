@@ -1,6 +1,7 @@
 """
 Authentication blueprint: login, logout, registration (admin only).
 """
+import secrets
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import (
@@ -67,6 +68,14 @@ def _clear_attempts(username: str) -> None:
     _login_attempts.pop(username, None)
 
 
+def _start_authenticated_session(user, remember: bool) -> None:
+    """Drop any pre-login session values, then establish a fresh login."""
+    session.clear()
+    login_user(user, remember=remember)
+    session.permanent = True
+    session['login_nonce'] = secrets.token_urlsafe(16)
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit('10 per minute')
 def login():
@@ -106,24 +115,27 @@ def login():
             flash('Your account is inactive. Contact an administrator.', 'warning')
             return render_template('auth/login.html', form=form)
         _clear_attempts(username)
-        login_user(user, remember=form.remember_me.data)
+        _start_authenticated_session(user, remember=bool(form.remember_me.data))
         user.LastLogin = datetime.utcnow()
         log_audit('auth.login', user_id=user.UserID, target_type='user', target_id=user.UserID)
         db.session.commit()
-        session.permanent = True
         next_page = safe_next_url(request.args.get('next'), url_for('dashboard.index'))
         flash(f'Welcome back, {user.FullName}.', 'success')
         return redirect(next_page)
     return render_template('auth/login.html', form=form)
 
 
-@auth_bp.route('/logout')
+@auth_bp.route('/logout', methods=['GET', 'POST'])
 @login_required
 def logout():
+    """Confirm on GET; end the session only on a CSRF-protected POST."""
+    if request.method != 'POST':
+        return render_template('auth/logout.html', title='Sign out')
     uid = current_user.UserID
     log_audit('auth.logout', user_id=uid, target_type='user', target_id=uid)
     db.session.commit()
     logout_user()
+    session.clear()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
 

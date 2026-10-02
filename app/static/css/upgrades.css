@@ -51,3 +51,17 @@
 .theme-dark .inbox-row.is-overdue td {
   background: rgba(239, 68, 68, 0.08);
 }
+
+.logout-form {
+  margin: 0;
+}
+
+button.nav-item.logout {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
