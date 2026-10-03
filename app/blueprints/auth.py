@@ -29,7 +29,7 @@ def safe_next_url(target, fallback):
     if not target or not isinstance(target, str):
         return fallback
     candidate = target.strip()
-    if not candidate.startswith('/') or candidate.startswith('//') or '\\' in candidate:
+    if not candidate.startswith('/') or candidate.startswith('//') or '\\\\' in candidate:
         return fallback
     parsed = urlparse(candidate)
     if parsed.scheme or parsed.netloc:
@@ -65,6 +65,12 @@ def _record_failed_attempt(username: str) -> None:
 
 def _clear_attempts(username: str) -> None:
     _login_attempts.pop(username, None)
+
+
+def stamp_session_activity() -> None:
+    """Mark a fresh authenticated session and start the idle window."""
+    session.permanent = True
+    session['last_activity'] = datetime.utcnow().replace(microsecond=0).isoformat()
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -106,11 +112,13 @@ def login():
             flash('Your account is inactive. Contact an administrator.', 'warning')
             return render_template('auth/login.html', form=form)
         _clear_attempts(username)
-        login_user(user, remember=form.remember_me.data)
+        # Drop the anonymous session before attaching the user (fixation).
+        session.clear()
+        login_user(user, remember=bool(form.remember_me.data))
         user.LastLogin = datetime.utcnow()
         log_audit('auth.login', user_id=user.UserID, target_type='user', target_id=user.UserID)
         db.session.commit()
-        session.permanent = True
+        stamp_session_activity()
         next_page = safe_next_url(request.args.get('next'), url_for('dashboard.index'))
         flash(f'Welcome back, {user.FullName}.', 'success')
         return redirect(next_page)
@@ -124,6 +132,7 @@ def logout():
     log_audit('auth.logout', user_id=uid, target_type='user', target_id=uid)
     db.session.commit()
     logout_user()
+    session.clear()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
 

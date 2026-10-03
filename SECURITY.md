@@ -13,9 +13,14 @@ This document describes how CallLog Pro is intended to be operated. It is not a 
 
 - Passwords are stored hashed via the `User` model helpers.
 - Flask-Login uses `session_protection = 'strong'`.
+- Login clears the anonymous session before attaching the user, which limits session fixation.
+- Logout clears the server-side session as well as the Flask-Login user.
+- Browser sessions are permanent and refresh on activity. `PERMANENT_SESSION_LIFETIME` defaults to 1800 seconds.
+- A sliding idle window (`SESSION_IDLE_MINUTES`, default 30) signs the user out and writes `auth.idle_timeout` to `system_audit`. Set it to `0` to disable. Personal API tokens are not subject to this window.
+- Remember-me is opt-in. The cookie is HttpOnly and SameSite=Lax, Secure in production, and lasts `REMEMBER_COOKIE_DAYS` (default 14, capped at 90).
 - Login is rate-limited (10 attempts per minute per remote address).
 - Five consecutive failed passwords for the same username lock that username for 15 minutes (in-process; resets on cold start).
-- Failed login, lockout, inactive-account, successful login, and logout are written to `system_audit`.
+- Failed login, lockout, inactive-account, successful login, idle timeout, and logout are written to `system_audit`.
 - CSRF protection is enabled application-wide. JSON clients may send `X-CSRFToken` or `X-CSRF-Token`.
 
 ## Roles

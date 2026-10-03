@@ -64,6 +64,22 @@ def _engine_options():
     return opts
 
 
+def _remember_cookie_days():
+    try:
+        days = int(os.environ.get('REMEMBER_COOKIE_DAYS', 14))
+    except (TypeError, ValueError):
+        days = 14
+    return max(1, min(days, 90))
+
+
+def _session_idle_minutes():
+    try:
+        minutes = int(os.environ.get('SESSION_IDLE_MINUTES', 30))
+    except (TypeError, ValueError):
+        minutes = 30
+    return max(0, min(minutes, 24 * 60))
+
+
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
@@ -72,6 +88,9 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(
         seconds=int(os.environ.get('PERMANENT_SESSION_LIFETIME', 1800))
     )
+    # Sliding idle window for authenticated browser sessions. 0 disables.
+    SESSION_IDLE_MINUTES = _session_idle_minutes()
+    SESSION_REFRESH_EACH_REQUEST = True
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None
     CACHE_TYPE = 'SimpleCache'
@@ -84,6 +103,11 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 2 * 1024 * 1024))
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    # Remember-me is opt-in on the login form and capped (default 14 days).
+    REMEMBER_COOKIE_DURATION = timedelta(days=_remember_cookie_days())
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = False
 
 
 class DevelopmentConfig(Config):
@@ -99,6 +123,9 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = True
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
 
 
 class TestingConfig(Config):
@@ -106,6 +133,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     WTF_CSRF_ENABLED = False
     CACHE_TYPE = 'NullCache'
+    SESSION_IDLE_MINUTES = 30
 
 
 config = {
