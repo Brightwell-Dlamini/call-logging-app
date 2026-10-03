@@ -4,10 +4,11 @@ Call Logging Application factory.
 import logging
 import os
 import uuid
+from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
-from flask import Flask, g, jsonify, render_template, request, redirect, url_for
+from flask import Flask, flash, g, jsonify, render_template, request, redirect, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user, logout_user
 from flask_migrate import Migrate
 from flask_caching import Cache
 from flask_limiter import Limiter
@@ -106,6 +107,56 @@ def create_app(config_name=None):
         if not app.config.get('WTF_CSRF_ENABLED', True):
             return None
         csrf.protect()
+
+    @app.before_request
+    def _enforce_session_idle():
+        """End browser sessions that have been idle longer than SESSION_IDLE_MINUTES."""
+        if not current_user.is_authenticated:
+            return None
+        if getattr(g, 'api_token', None):
+            return None
+        try:
+            idle_minutes = int(app.config.get('SESSION_IDLE_MINUTES', 30))
+        except (TypeError, ValueError):
+            idle_minutes = 30
+        if idle_minutes <= 0:
+            return None
+        now = datetime.utcnow().replace(microsecond=0)
+        raw = session.get('last_activity')
+        last = None
+        if raw:
+            try:
+                last = datetime.fromisoformat(raw)
+            except (TypeError, ValueError):
+                last = None
+        if last is not None and now - last > timedelta(minutes=idle_minutes):
+            uid = current_user.get_id()
+            from app.utils.audit import log_audit
+            log_audit(
+                'auth.idle_timeout',
+                f'idle_minutes={idle_minutes}',
+                user_id=uid,
+                target_type='user',
+                target_id=uid,
+            )
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            logout_user()
+            session.clear()
+            if _wants_json_error():
+                return jsonify({
+                    'ok': False,
+                    'error': 'Session expired',
+                    'status': 401,
+                    'request_id': getattr(g, 'request_id', None),
+                }), 401
+            flash('Your session expired due to inactivity. Please sign in again.', 'warning')
+            return redirect(url_for('auth.login'))
+        session['last_activity'] = now.isoformat()
+        session.permanent = True
+        return None
 
     @app.after_request
     def _security_headers(response):

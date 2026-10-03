@@ -9,7 +9,7 @@ def test_safe_next_url_rejects_open_redirects():
     assert safe_next_url('/calls/1?tab=notes', fallback) == '/calls/1?tab=notes'
     assert safe_next_url('https://evil.example/phish', fallback) == fallback
     assert safe_next_url('//evil.example/phish', fallback) == fallback
-    assert safe_next_url('/\\\\evil.example', fallback) == fallback
+    assert safe_next_url('/' + chr(92) + 'evil.example', fallback) == fallback
     assert safe_next_url(None, fallback) == fallback
     assert safe_next_url('', fallback) == fallback
 

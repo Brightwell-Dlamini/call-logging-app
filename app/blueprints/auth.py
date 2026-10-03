@@ -29,7 +29,7 @@ def safe_next_url(target, fallback):
     if not target or not isinstance(target, str):
         return fallback
     candidate = target.strip()
-    if not candidate.startswith('/') or candidate.startswith('//') or '\\\\' in candidate:
+    if not candidate.startswith('/') or candidate.startswith('//') or chr(92) in candidate:
         return fallback
     parsed = urlparse(candidate)
     if parsed.scheme or parsed.netloc:
