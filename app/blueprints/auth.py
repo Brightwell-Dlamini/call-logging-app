@@ -106,7 +106,10 @@ def login():
             flash('Your account is inactive. Contact an administrator.', 'warning')
             return render_template('auth/login.html', form=form)
         _clear_attempts(username)
-        login_user(user, remember=form.remember_me.data)
+        remember = bool(form.remember_me.data)
+        # Drop any pre-login session identifier before issuing the login cookie.
+        session.clear()
+        login_user(user, remember=remember)
         user.LastLogin = datetime.utcnow()
         log_audit('auth.login', user_id=user.UserID, target_type='user', target_id=user.UserID)
         db.session.commit()
@@ -124,6 +127,7 @@ def logout():
     log_audit('auth.logout', user_id=uid, target_type='user', target_id=uid)
     db.session.commit()
     logout_user()
+    session.clear()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
 

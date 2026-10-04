@@ -49,3 +49,48 @@ def test_agent_cannot_open_admin_users(client):
     client.post('/login', data={'username': 'agent1', 'password': 'agent123'}, follow_redirects=True)
     r = client.get('/admin/users')
     assert r.status_code in (302, 403)
+
+
+def test_login_session_cookie_is_httponly(client):
+    r = client.post(
+        '/login',
+        data={'username': 'admin', 'password': 'admin123'},
+        follow_redirects=False,
+    )
+    set_cookie = r.headers.get('Set-Cookie', '')
+    assert 'HttpOnly' in set_cookie
+    assert 'SameSite=Lax' in set_cookie
+
+
+def test_inactive_user_is_signed_out(client, app):
+    client.post(
+        '/login',
+        data={'username': 'agent1', 'password': 'agent123'},
+        follow_redirects=True,
+    )
+    with app.app_context():
+        user = User.query.filter_by(Username='agent1').first()
+        user.IsActive = False
+        db.session.commit()
+    r = client.get('/dashboard', follow_redirects=False)
+    assert r.status_code in (302, 303)
+    assert '/login' in (r.headers.get('Location') or '')
+    follow = client.get('/dashboard', follow_redirects=False)
+    assert '/login' in (follow.headers.get('Location') or '')
+
+
+def test_inactive_api_session_returns_401(client, app):
+    client.post(
+        '/login',
+        data={'username': 'admin', 'password': 'admin123'},
+        follow_redirects=True,
+    )
+    with app.app_context():
+        user = User.query.filter_by(Username='admin').first()
+        user.IsActive = False
+        db.session.commit()
+    r = client.get('/api/calls', headers={'Accept': 'application/json'})
+    assert r.status_code == 401
+    body = r.get_json()
+    assert body['ok'] is False
+    assert body['error'] == 'Account inactive'

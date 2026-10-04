@@ -5,9 +5,9 @@ import logging
 import os
 import uuid
 from logging.handlers import RotatingFileHandler
-from flask import Flask, g, jsonify, render_template, request, redirect, url_for
+from flask import Flask, flash, g, jsonify, render_template, request, redirect, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user, logout_user
 from flask_migrate import Migrate
 from flask_caching import Cache
 from flask_limiter import Limiter
@@ -50,6 +50,12 @@ def create_app(config_name=None):
     app.config.setdefault('WTF_CSRF_HEADERS', ['X-CSRFToken', 'X-CSRF-Token'])
     # CSRF is applied after Bearer-token auth so verified API clients are not blocked.
     app.config['WTF_CSRF_CHECK_DEFAULT'] = False
+    if _is_production():
+        # Vercel may not set FLASK_ENV, so ProductionConfig is not always loaded.
+        app.config['SESSION_COOKIE_SECURE'] = True
+        app.config['REMEMBER_COOKIE_SECURE'] = True
+        app.config['SESSION_COOKIE_HTTPONLY'] = True
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -106,6 +112,26 @@ def create_app(config_name=None):
         if not app.config.get('WTF_CSRF_ENABLED', True):
             return None
         csrf.protect()
+
+    @app.before_request
+    def _end_inactive_session():
+        if request.endpoint in ('auth.login', 'auth.logout', 'health', 'static', 'favicon', 'seed_endpoint'):
+            return None
+        if not current_user.is_authenticated:
+            return None
+        if getattr(current_user, 'IsActive', True):
+            return None
+        logout_user()
+        session.clear()
+        if _wants_json_error():
+            return jsonify({
+                'ok': False,
+                'error': 'Account inactive',
+                'status': 401,
+                'request_id': getattr(g, 'request_id', None),
+            }), 401
+        flash('Your account has been deactivated. Contact an administrator.', 'danger')
+        return redirect(url_for('auth.login'))
 
     @app.after_request
     def _security_headers(response):
