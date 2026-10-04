@@ -72,6 +72,8 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(
         seconds=int(os.environ.get('PERMANENT_SESSION_LIFETIME', 1800))
     )
+    # Idle timeout: refresh the permanent session on each authenticated request.
+    SESSION_REFRESH_EACH_REQUEST = True
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None
     CACHE_TYPE = 'SimpleCache'
@@ -84,6 +86,9 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 2 * 1024 * 1024))
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_DURATION = timedelta(days=14)
 
 
 class DevelopmentConfig(Config):
@@ -99,6 +104,7 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = True
 
 
 class TestingConfig(Config):

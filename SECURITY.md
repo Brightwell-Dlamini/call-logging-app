@@ -17,6 +17,11 @@ This document describes how CallLog Pro is intended to be operated. It is not a 
 - Five consecutive failed passwords for the same username lock that username for 15 minutes (in-process; resets on cold start).
 - Failed login, lockout, inactive-account, successful login, and logout are written to `system_audit`.
 - CSRF protection is enabled application-wide. JSON clients may send `X-CSRFToken` or `X-CSRF-Token`.
+- Session cookies are `HttpOnly` and `SameSite=Lax`. `Secure` is forced when `FLASK_ENV=production` or `VERCEL_ENV=production`, even if the process otherwise loaded the development config.
+- Permanent sessions idle out after `PERMANENT_SESSION_LIFETIME` seconds (default 1800). The lifetime refreshes on each request.
+- Remember-me cookies are `HttpOnly`, `SameSite=Lax`, last 14 days, and are `Secure` in production.
+- Login and logout clear the server-side session before issuing a new login cookie, so a pre-login session identifier is not reused.
+- A user marked inactive is signed out on the next request, including routes that only use `login_required`. API callers receive HTTP 401.
 
 ## Roles
 
