@@ -106,11 +106,13 @@ def login():
             flash('Your account is inactive. Contact an administrator.', 'warning')
             return render_template('auth/login.html', form=form)
         _clear_attempts(username)
+        # Drop any pre-login session keys before establishing the authenticated session.
+        session.clear()
         login_user(user, remember=form.remember_me.data)
+        session.permanent = True
         user.LastLogin = datetime.utcnow()
         log_audit('auth.login', user_id=user.UserID, target_type='user', target_id=user.UserID)
         db.session.commit()
-        session.permanent = True
         next_page = safe_next_url(request.args.get('next'), url_for('dashboard.index'))
         flash(f'Welcome back, {user.FullName}.', 'success')
         return redirect(next_page)
@@ -124,6 +126,7 @@ def logout():
     log_audit('auth.logout', user_id=uid, target_type='user', target_id=uid)
     db.session.commit()
     logout_user()
+    session.clear()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
 

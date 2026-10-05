@@ -64,6 +64,46 @@ def _engine_options():
     return opts
 
 
+def _env_flag(name):
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == '':
+        return None
+    return str(raw).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def https_deployed():
+    """True when this process is an HTTPS deploy, not a local dev server."""
+    if os.environ.get('FLASK_ENV') == 'production':
+        return True
+    return os.environ.get('VERCEL_ENV') in ('production', 'preview')
+
+
+def apply_cookie_security(app):
+    """
+    Set session and remember-me cookie flags.
+
+    ProductionConfig already sets SESSION_COOKIE_SECURE, but the factory often
+    loads DevelopmentConfig when FLASK_ENV is unset (including on Vercel).
+    Explicit SESSION_COOKIE_SECURE=0/1 always wins so local HTTP can opt out.
+    """
+    app.config.setdefault('SESSION_COOKIE_NAME', 'clp_session')
+    app.config.setdefault('SESSION_COOKIE_HTTPONLY', True)
+    app.config.setdefault('SESSION_COOKIE_SAMESITE', 'Lax')
+    app.config.setdefault('REMEMBER_COOKIE_NAME', 'clp_remember')
+    app.config.setdefault('REMEMBER_COOKIE_HTTPONLY', True)
+    app.config.setdefault('REMEMBER_COOKIE_SAMESITE', 'Lax')
+    app.config.setdefault('REMEMBER_COOKIE_DURATION', timedelta(days=14))
+    app.config.setdefault('REMEMBER_COOKIE_REFRESH_EACH_REQUEST', False)
+
+    explicit = _env_flag('SESSION_COOKIE_SECURE')
+    if explicit is None:
+        secure = (not app.config.get('TESTING')) and https_deployed()
+    else:
+        secure = explicit
+    app.config['SESSION_COOKIE_SECURE'] = secure
+    app.config['REMEMBER_COOKIE_SECURE'] = secure
+
+
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
@@ -82,8 +122,13 @@ class Config:
     LOGIN_LOCKOUT_MINUTES = 15
     # Cap uploads (CSV import) so a single request cannot exhaust memory.
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 2 * 1024 * 1024))
+    SESSION_COOKIE_NAME = 'clp_session'
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_NAME = 'clp_remember'
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_DURATION = timedelta(days=14)
 
 
 class DevelopmentConfig(Config):
@@ -99,6 +144,7 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = True
 
 
 class TestingConfig(Config):
@@ -106,6 +152,8 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     WTF_CSRF_ENABLED = False
     CACHE_TYPE = 'NullCache'
+    SESSION_COOKIE_SECURE = False
+    REMEMBER_COOKIE_SECURE = False
 
 
 config = {

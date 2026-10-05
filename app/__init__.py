@@ -13,7 +13,7 @@ from flask_caching import Cache
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
-from config import config
+from config import apply_cookie_security, config
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -47,6 +47,7 @@ def create_app(config_name=None):
 
     app = Flask(__name__)
     app.config.from_object(config.get(config_name, config['default']))
+    apply_cookie_security(app)
     app.config.setdefault('WTF_CSRF_HEADERS', ['X-CSRFToken', 'X-CSRF-Token'])
     # CSRF is applied after Bearer-token auth so verified API clients are not blocked.
     app.config['WTF_CSRF_CHECK_DEFAULT'] = False

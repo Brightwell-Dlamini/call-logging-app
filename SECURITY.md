@@ -17,6 +17,10 @@ This document describes how CallLog Pro is intended to be operated. It is not a 
 - Five consecutive failed passwords for the same username lock that username for 15 minutes (in-process; resets on cold start).
 - Failed login, lockout, inactive-account, successful login, and logout are written to `system_audit`.
 - CSRF protection is enabled application-wide. JSON clients may send `X-CSRFToken` or `X-CSRF-Token`.
+- Session cookie name is `clp_session`. It is `HttpOnly` and `SameSite=Lax`. The idle lifetime is `PERMANENT_SESSION_LIFETIME` (default 30 minutes).
+- The remember-me cookie (`clp_remember`) is `HttpOnly`, `SameSite=Lax`, and expires after 14 days. It is not refreshed on every request.
+- Both cookies are marked `Secure` when `FLASK_ENV=production` or `VERCEL_ENV` is `production` or `preview`, even if the process still loads the development config class. `SESSION_COOKIE_SECURE=0` overrides this for local HTTP only.
+- Successful login clears any pre-login session keys before establishing the authenticated session. Logout clears the session after the audit row is committed.
 
 ## Roles
 
@@ -34,7 +38,7 @@ The seed route can create demo users and sample calls.
 
 ## API tokens and imports
 
-- Personal tokens (`clp_…`) are hashed at rest. Treat the plaintext token as a password.
+- Personal tokens (`clp_...`) are hashed at rest. Treat the plaintext token as a password.
 - Scope tokens to the minimum needed (read vs write) and revoke unused tokens from the admin/token UI.
 - CSV import is size-capped (`MAX_CONTENT_LENGTH` / `MAX_IMPORT_BYTES`, default 2 MiB). Only administrators should import.
 
