@@ -50,7 +50,7 @@ Serverless note: connections use **NullPool** so each invocation does not hold i
 - **Configurable SLA** thresholds by priority (`ok` / `warn` / `breach`)
 - Dashboard charts (status, 7-day volume, department, tag distribution, overdue)
 - Reports: daily, monthly, agent, department · Excel & PDF
-- **Date-bounded exports** – Excel/PDF and agent/department views accept `from`/`to` (default last 30 or 90 days, 2 000-row cap); downloads write `report.export_*` system audit events
+- **Date-bounded exports** – Excel/PDF and agent/department views accept `from`/`to` (default last 30 or 90 days, 2 000-row cap); downloads write `report.export_*` system audit events
 - **Audit trail** – call changes + system events
 - **Dark mode** – system preference + manual toggle
 - **CSV bulk import** – administrator import with size limits
@@ -109,8 +109,10 @@ See **[DEMO.md](DEMO.md)** for a 5-minute viva script.
 | `ENABLE_SEED` | Optional | Set to `1` only to allow `/seed` in production |
 | `SEED_TOKEN` | Recommended if seeding | Required as `X-Seed-Token` or `?token=` when set |
 | `MAX_CONTENT_LENGTH` | Optional | Request body cap (default 2 MiB) |
+| `PERMANENT_SESSION_LIFETIME` | Optional | Session cookie lifetime in seconds (default 1800) |
+| `SESSION_IDLE_TIMEOUT` | Optional | Idle cutoff in seconds (default 1800). Writes `auth.idle_timeout` |
 
-**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Production seed responses do not include demo passwords. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users. See [SECURITY.md](SECURITY.md).
+**Security:** `/seed` is blocked in production unless `ENABLE_SEED=1`. Production seed responses do not include demo passwords. Rotate Neon credentials if they were ever shared. Change demo passwords before any real users. Sign-out is POST-only. See [SECURITY.md](SECURITY.md).
 
 ---
 
