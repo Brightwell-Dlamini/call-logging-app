@@ -64,14 +64,22 @@ def _engine_options():
     return opts
 
 
+def _session_seconds(default=1800):
+    raw = os.environ.get('PERMANENT_SESSION_LIFETIME', default)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = _engine_options()
-    PERMANENT_SESSION_LIFETIME = timedelta(
-        seconds=int(os.environ.get('PERMANENT_SESSION_LIFETIME', 1800))
-    )
+    PERMANENT_SESSION_LIFETIME = timedelta(seconds=_session_seconds())
+    # Idle cutoff is independent of the cookie max-age. Default matches the session lifetime.
+    SESSION_IDLE_TIMEOUT = int(os.environ.get('SESSION_IDLE_TIMEOUT', _session_seconds()))
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None
     CACHE_TYPE = 'SimpleCache'
@@ -84,6 +92,9 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 2 * 1024 * 1024))
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_DURATION = timedelta(seconds=_session_seconds())
 
 
 class DevelopmentConfig(Config):
@@ -99,6 +110,7 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    REMEMBER_COOKIE_SECURE = True
 
 
 class TestingConfig(Config):

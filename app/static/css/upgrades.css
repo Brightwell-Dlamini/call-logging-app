@@ -51,3 +51,17 @@
 .theme-dark .inbox-row.is-overdue td {
   background: rgba(239, 68, 68, 0.08);
 }
+
+/* Sign-out is a POST form so it can carry a CSRF token. */
+.logout-form {
+  margin: 0;
+}
+.logout-form .nav-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}

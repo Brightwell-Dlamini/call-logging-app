@@ -49,3 +49,29 @@ def test_agent_cannot_open_admin_users(client):
     client.post('/login', data={'username': 'agent1', 'password': 'agent123'}, follow_redirects=True)
     r = client.get('/admin/users')
     assert r.status_code in (302, 403)
+
+
+def test_get_logout_does_not_end_session(auth_client):
+    r = auth_client.get('/logout')
+    assert r.status_code == 405
+    still_in = auth_client.get('/dashboard')
+    assert still_in.status_code == 200
+
+
+def test_post_logout_ends_session(auth_client):
+    r = auth_client.post('/logout', follow_redirects=False)
+    assert r.status_code in (302, 303)
+    assert '/login' in r.headers.get('Location', '')
+    after = auth_client.get('/dashboard', follow_redirects=False)
+    assert after.status_code in (302, 303)
+    assert '/login' in after.headers.get('Location', '')
+
+
+def test_idle_timeout_requires_fresh_login(auth_client):
+    with auth_client.session_transaction() as sess:
+        sess['_last_activity'] = 1
+    r = auth_client.get('/dashboard', follow_redirects=False)
+    assert r.status_code in (302, 303)
+    assert '/login' in r.headers.get('Location', '')
+    again = auth_client.get('/dashboard', follow_redirects=False)
+    assert again.status_code in (302, 303)

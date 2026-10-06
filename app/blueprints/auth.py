@@ -106,24 +106,29 @@ def login():
             flash('Your account is inactive. Contact an administrator.', 'warning')
             return render_template('auth/login.html', form=form)
         _clear_attempts(username)
+        # Drop any pre-login session keys so a fixed session id cannot be reused.
+        session.clear()
         login_user(user, remember=form.remember_me.data)
+        session.permanent = True
+        session['_last_activity'] = datetime.utcnow().timestamp()
         user.LastLogin = datetime.utcnow()
         log_audit('auth.login', user_id=user.UserID, target_type='user', target_id=user.UserID)
         db.session.commit()
-        session.permanent = True
         next_page = safe_next_url(request.args.get('next'), url_for('dashboard.index'))
         flash(f'Welcome back, {user.FullName}.', 'success')
         return redirect(next_page)
     return render_template('auth/login.html', form=form)
 
 
-@auth_bp.route('/logout')
+@auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
+    """End the session. POST only so a cross-site GET cannot sign the user out."""
     uid = current_user.UserID
     log_audit('auth.logout', user_id=uid, target_type='user', target_id=uid)
     db.session.commit()
     logout_user()
+    session.clear()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
 
